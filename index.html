@@ -1384,6 +1384,12 @@
 
                         bullets = syncGameState.bullets;
                         healthPack = syncGameState.healthPack;
+
+                        // 【修復】若房主已開始下一局（gameOver 變為 false），客戶端強制自動同步解除畫面並開始下一局
+                        if (gameOver && !syncGameState.gameOver) {
+                            triggerRematch();
+                        }
+
                         if (syncGameState.gameOver && !gameOver) {
                             showGameOver(syncGameState.winnerMessage);
                         }
