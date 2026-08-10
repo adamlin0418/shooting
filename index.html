@@ -405,7 +405,7 @@
             return gameType === 'online_normal' ? NORMAL_LOBBY_ID : SPECIAL_LOBBY_ID;
         }
 
-        let rematchState = 'none';
+        let rematchState = 'none'; // 'none', 'sent', 'received', 'declined_by_me', 'declined_by_other'
         let healthPack = null;
         let healthPackInterval = null;
 
@@ -633,7 +633,7 @@
 
         function changeMode(playerNum, direction) {
             if (gameStarted) return;
-            if (gameType === 'online_normal') return; // 普通對戰鎖定標準模式
+            if (gameType === 'online_normal') return;
             
             if (gameType === 'online_special') {
                 if (isHost && playerNum !== 1) return;
@@ -655,7 +655,6 @@
             }
         }
 
-        // 鍵盤事件支援
         window.addEventListener("keydown", (e) => {
             if (["Space", "Enter", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "KeyS", "KeyW", "KeyA", "KeyD"].includes(e.code)) {
                 e.preventDefault();
@@ -683,7 +682,6 @@
 
         window.addEventListener("keyup", (e) => keys[e.code] = false);
 
-        // --- 平板多點觸控全域追蹤系統 ---
         const mobileControlsContainer = document.getElementById('mobileControlsContainer');
 
         function handleTouchControls(e) {
@@ -1100,7 +1098,7 @@
             if (gameType === 'local') {
                 triggerRematch();
             } else {
-                if (rematchState === 'none') {
+                if (rematchState === 'none' || rematchState === 'declined_by_other' || rematchState === 'declined_by_me') {
                     rematchState = 'sent';
                     updateGameOverUI();
                     if (conn && conn.open) {
@@ -1144,32 +1142,26 @@
                 return;
             }
 
-            if (rematchState === 'none') {
-                statusText.innerText = "請選擇下一步操作";
+            if (rematchState === 'none' || rematchState === 'declined_by_other' || rematchState === 'declined_by_me') {
+                let prefix = "";
+                if (rematchState === 'declined_by_other') prefix = "對手已拒絕再來一局邀請。";
+                if (rematchState === 'declined_by_me') prefix = "您已拒絕再來一局邀請。";
+                
+                statusText.innerText = prefix + " 請選擇下一步操作";
                 btnContainer.innerHTML = `
                     <button class="start-action-btn" id="rematchActionBtn" onclick="handleRematchClick()" style="background: linear-gradient(135deg, #28a745, #218838);">再來一局 (發送邀請)</button>
                     <button class="restart-btn" style="padding: 10px 25px; font-size: 15px; background-color: #d9534f; border-color: #d43f3a;" onclick="returnToMenu()">返回選單 / 重新匹配</button>
                 `;
             } else if (rematchState === 'sent') {
-                statusText.innerText = "已向對手發送再來一局邀請，等待回應中...";
+                statusText.innerText = "已向對手發送再來一局邀請，等待對方同意中...";
                 btnContainer.innerHTML = `
-                    <button class="start-action-btn" onclick="handleCancelClick()" style="background: #6c757d; border-color: #545b62;">取消邀請並返回</button>
+                    <button class="start-action-btn" onclick="handleCancelClick()" style="background: #6c757d; border-color: #545b62;">取消邀請</button>
                 `;
             } else if (rematchState === 'received') {
                 statusText.innerHTML = `<span style="color: #00ffcc; font-size: 16px;">對手邀請您再來一局！</span>`;
                 btnContainer.innerHTML = `
                     <button class="start-action-btn" onclick="handleRematchClick()" style="background: linear-gradient(135deg, #ffc107, #e0a800); color: #000; border-color: #d39e00;">接受邀請 (Accept)</button>
                     <button class="restart-btn" onclick="handleDeclineClick()" style="padding: 10px 25px; font-size: 15px; background-color: #d9534f; border-color: #d43f3a;">拒絕 (Decline)</button>
-                `;
-            } else if (rematchState === 'declined_by_me') {
-                statusText.innerText = "您已拒絕再來一局邀請。";
-                btnContainer.innerHTML = `
-                    <button class="restart-btn" style="padding: 10px 25px; font-size: 15px; background-color: #d9534f; border-color: #d43f3a;" onclick="returnToMenu()">返回選單 / 重新匹配</button>
-                `;
-            } else if (rematchState === 'declined_by_other') {
-                statusText.innerText = "對手已拒絕再來一局邀請。";
-                btnContainer.innerHTML = `
-                    <button class="restart-btn" style="padding: 10px 25px; font-size: 15px; background-color: #d9534f; border-color: #d43f3a;" onclick="returnToMenu()">返回選單 / 重新匹配</button>
                 `;
             }
         }
@@ -1262,7 +1254,6 @@
                     player1.update(player2, keys);
                     player2.update(player1, p2Input);
 
-                    // 檢查補血包碰撞
                     if (healthPack) {
                         let hpBox = { x: healthPack.x - 16, y: healthPack.y - 16, width: 32, height: 32 };
                         if (checkCollision(player1, hpBox)) {
