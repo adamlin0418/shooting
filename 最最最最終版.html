@@ -1,0 +1,1435 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>電腦連機射擊</title>
+    <!-- 引入 PeerJS 用於 P2P 聯機 -->
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <style>
+        body {
+            background-color: #1a1a1a;
+            color: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 10px;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        h1 {
+            margin: 5px 0;
+            font-size: 24px;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px rgba(255,255,255,0.2);
+        }
+        .instructions {
+            margin-bottom: 8px;
+            font-size: 13px;
+            color: #ccc;
+        }
+        .highlight-p1 { color: #4facf7; font-weight: bold; text-shadow: 0 0 8px rgba(79,172,247,0.5); }
+        .highlight-p2 { color: #ff6b6b; font-weight: bold; text-shadow: 0 0 8px rgba(255,107,107,0.5); }
+        
+        .canvas-container {
+            position: relative;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        canvas {
+            background-color: #0d0d0d;
+            border: 4px solid #333;
+            border-radius: 12px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+            width: 100%;
+            max-width: 800px;
+            height: auto;
+            display: block;
+            margin: 0 auto;
+        }
+
+        /* 開始選單畫面樣式 */
+        #startMenu {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(13, 13, 13, 0.96);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border-radius: 8px;
+            z-index: 10;
+            backdrop-filter: blur(5px);
+            padding: 15px;
+            box-sizing: border-box;
+        }
+        #startMenu h2 {
+            font-size: 20px;
+            margin-bottom: 8px;
+            color: #fff;
+            text-shadow: 0 0 10px rgba(255,255,255,0.3);
+        }
+        .menu-top-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .menu-option-group {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            padding: 8px 12px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .menu-option-group label {
+            font-size: 12px;
+            color: #aaa;
+            display: block;
+            margin-bottom: 4px;
+        }
+        .menu-selectors {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .menu-player-box {
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 8px;
+            width: 180px;
+            text-align: center;
+        }
+        .menu-player-box h3 {
+            margin: 0 0 4px 0;
+            font-size: 13px;
+        }
+        .selected-mode-display {
+            font-size: 15px;
+            font-weight: bold;
+            margin: 4px 0;
+            padding: 4px;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 6px;
+        }
+        .menu-hint {
+            font-size: 11px;
+            color: #aaa;
+            margin-top: 2px;
+        }
+        .start-action-btn {
+            background: linear-gradient(135deg, #28a745, #218838);
+            color: #fff;
+            border: 2px solid #57d172;
+            padding: 8px 25px;
+            font-size: 15px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            margin-top: 5px;
+            touch-action: manipulation;
+        }
+        .start-action-btn:hover {
+            background: linear-gradient(135deg, #218838, #1e7e34);
+            transform: translateY(-2px);
+        }
+        .menu-btn-choice {
+            background: #333;
+            color: #fff;
+            border: 1px solid #555;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 12px;
+            margin: 2px;
+            touch-action: manipulation;
+        }
+        .menu-btn-choice.active {
+            background: #4facf7;
+            border-color: #fff;
+        }
+
+        /* 遊戲結束互動選單畫面 */
+        #gameOverMenu {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(13, 13, 13, 0.95);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border-radius: 8px;
+            z-index: 12;
+            backdrop-filter: blur(5px);
+            padding: 15px;
+            box-sizing: border-box;
+        }
+
+        /* 線上匹配狀態面板 */
+        #onlineConfigPanel {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            padding: 8px 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            width: 100%;
+            max-width: 380px;
+            box-sizing: border-box;
+            text-align: center;
+        }
+        .online-btn {
+            background: #007bff;
+            color: #fff;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 13px;
+            margin-top: 4px;
+            touch-action: manipulation;
+        }
+        .online-btn:hover { background: #0056b3; }
+        #connectionStatus {
+            font-size: 12px;
+            color: #ffc107;
+            margin-top: 6px;
+            font-weight: bold;
+        }
+
+        /* 觸控控制面板樣式 */
+        .mobile-controls {
+            display: flex;
+            justify-content: space-around;
+            max-width: 800px;
+            margin: 10px auto 0 auto;
+            gap: 10px;
+            touch-action: none;
+        }
+        .player-control-group {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .player-control-group h4 {
+            margin: 0 0 5px 0;
+            font-size: 12px;
+        }
+        .control-row {
+            display: flex;
+            justify-content: center;
+            gap: 5px;
+            margin-bottom: 5px;
+        }
+        .ctrl-btn {
+            background-color: #333;
+            color: #fff;
+            border: 2px solid #555;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            padding: 10px 0;
+            width: 45px;
+            height: 45px;
+            touch-action: none;
+            cursor: pointer;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .ctrl-btn.active {
+            background-color: #666;
+            transform: scale(0.95);
+        }
+        .wide-btn {
+            width: 100px;
+            font-size: 12px;
+            height: 40px;
+        }
+        .p1-panel h4 { color: #4facf7; }
+        .p2-panel h4 { color: #ff6b6b; }
+        .p1-panel .ctrl-btn.active { background-color: #4facf7; border-color: #fff; }
+        .p2-panel .ctrl-btn.active { background-color: #ff6b6b; border-color: #fff; }
+
+        .global-controls {
+            margin-top: 8px;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+        .restart-btn {
+            background-color: #444;
+            color: #fff;
+            border: 2px solid #777;
+            padding: 8px 20px;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+        .restart-btn:active { background-color: #888; }
+    </style>
+</head>
+<body>
+
+    <h1>電腦連機射擊</h1>
+    <div class="instructions" id="instructionText">
+        <span class="highlight-p1">玩家1</span>: W,A,S,D 移動 | 空白鍵發射 &nbsp;|&nbsp; <span class="highlight-p2">玩家2</span>: 方向鍵移動 | Enter 發射
+    </div>
+
+    <div class="canvas-container">
+        <canvas id="gameCanvas" width="800" height="500"></canvas>
+        
+        <!-- 開始選單畫面 -->
+        <div id="startMenu">
+            <h2>對戰設定與模式選擇</h2>
+            
+            <div class="menu-top-row">
+                <div class="menu-option-group">
+                    <label>對戰類型</label>
+                    <button class="menu-btn-choice active" id="modeLocalBtn" onclick="setGameType('local')">本地雙人</button>
+                    <button class="menu-btn-choice" id="modeOnlineNormalBtn" onclick="setGameType('online_normal')">線上普通對戰</button>
+                    <button class="menu-btn-choice" id="modeOnlineSpecialBtn" onclick="setGameType('online_special')">線上特殊對戰</button>
+                </div>
+            </div>
+
+            <button class="start-action-btn" id="startBtn" onclick="startGame()">開始本地對戰</button>
+
+            <div id="onlineConfigPanel" style="display: none;">
+                <div id="onlineModeHint" style="font-size: 12px; color: #aaa; margin-bottom: 4px;">模式：標準模式（固定）</div>
+                <button class="online-btn" id="findMatchBtn" onclick="startMatchmaking()">開始尋找對手</button>
+                <div id="connectionStatus">狀態：尚未開始匹配</div>
+            </div>
+
+            <div class="menu-selectors" style="margin-top: 10px;">
+                <div class="menu-player-box" style="border-color: #4facf7;">
+                    <h3 style="color: #4facf7;" id="p1BoxTitle">玩家 1 (藍)</h3>
+                    <div class="selected-mode-display" id="p1MenuMode">標準模式</div>
+                    <div class="menu-hint" id="p1MenuHint">使用 <strong>A / D</strong> 切換模式</div>
+                </div>
+                <div class="menu-player-box" id="p2MenuBox" style="border-color: #ff6b6b;">
+                    <h3 id="p2BoxTitle" style="color: #ff6b6b;">玩家 2 (紅)</h3>
+                    <div class="selected-mode-display" id="p2MenuMode">標準模式</div>
+                    <div class="menu-hint" id="p2MenuHint">使用 <strong>← / →</strong> 切換模式</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 遊戲結束互動選單畫面 -->
+        <div id="gameOverMenu">
+            <h2 id="gameOverTitleText" style="font-size: 28px; margin-bottom: 10px; color: #ff5252;">遊戲結束</h2>
+            <div id="gameOverStatusText" style="font-size: 15px; color: #ffeb3b; margin-bottom: 18px; text-align: center; padding: 0 20px;">請選擇下一步操作</div>
+            <div style="display: flex; gap: 15px; flex-wrap: wrap; justify-content: center;" id="gameOverButtonContainer">
+                <button class="start-action-btn" id="rematchActionBtn" onclick="handleRematchClick()">再來一局 (Rematch)</button>
+                <button class="restart-btn" id="secondaryActionBtn" style="padding: 10px 25px; font-size: 15px; background-color: #d9534f; border-color: #d43f3a;" onclick="returnToMenu()">返回選單</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 觸控控制面板 -->
+    <div class="mobile-controls" id="mobileControlsContainer">
+        <div class="player-control-group p1-panel">
+            <h4 id="p1Title">玩家 1 (藍)</h4>
+            <div class="control-row">
+                <button class="ctrl-btn" data-key="KeyW">W</button>
+            </div>
+            <div class="control-row">
+                <button class="ctrl-btn" data-key="KeyA">A</button>
+                <button class="ctrl-btn" data-key="KeyS">S</button>
+                <button class="ctrl-btn" data-key="KeyD">D</button>
+            </div>
+            <div class="control-row">
+                <button class="ctrl-btn wide-btn" id="p1ShootBtn" data-key="Space">發射 (Space)</button>
+            </div>
+        </div>
+
+        <div class="player-control-group p2-panel" id="p2ControlPanel">
+            <h4 id="p2Title">玩家 2 (紅)</h4>
+            <div class="control-row">
+                <button class="ctrl-btn" data-key="ArrowUp">▲</button>
+            </div>
+            <div class="control-row">
+                <button class="ctrl-btn" data-key="ArrowLeft">◀</button>
+                <button class="ctrl-btn" data-key="ArrowDown">▼</button>
+                <button class="ctrl-btn" data-key="ArrowRight">▶</button>
+            </div>
+            <div class="control-row">
+                <button class="ctrl-btn wide-btn" id="p2ShootBtn" data-key="Enter">發射 (Enter)</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="global-controls">
+        <button class="restart-btn" onclick="returnToMenu()">返回選單</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        const keys = {};
+        const availableModes = [
+            { id: 'normal', name: '標準模式' },
+            { id: 'rapid', name: '2倍速連發' },
+            { id: 'charge', name: '蓄力模式' }
+        ];
+
+        let p1ModeIndex = 0;
+        let p2ModeIndex = 0;
+        let gameType = 'local'; // 'local', 'online_normal', 'online_special'
+        
+        let peer = null;
+        let conn = null;
+        let isHost = false;
+        let isConnected = false;
+        let ghostRoomTimeout = null;
+
+        const NORMAL_LOBBY_ID = "shooter_global_normal_lobby_v1_2026";
+        const SPECIAL_LOBBY_ID = "shooter_global_special_lobby_v1_2026";
+
+        function getActiveLobbyId() {
+            return gameType === 'online_normal' ? NORMAL_LOBBY_ID : SPECIAL_LOBBY_ID;
+        }
+
+        let rematchState = 'none';
+        let healthPack = null;
+        let healthPackInterval = null;
+
+        function setGameType(type) {
+            gameType = type;
+            document.getElementById("modeLocalBtn").classList.toggle('active', type === 'local');
+            document.getElementById("modeOnlineNormalBtn").classList.toggle('active', type === 'online_normal');
+            document.getElementById("modeOnlineSpecialBtn").classList.toggle('active', type === 'online_special');
+            
+            const onlinePanel = document.getElementById("onlineConfigPanel");
+            const startBtn = document.getElementById("startBtn");
+            const onlineHint = document.getElementById("onlineModeHint");
+
+            if (type.startsWith('online')) {
+                onlinePanel.style.display = "block";
+                startBtn.style.display = "none";
+                if (type === 'online_normal') {
+                    onlineHint.innerText = "模式：【普通對戰】雙方強制使用標準模式";
+                    p1ModeIndex = 0;
+                    p2ModeIndex = 0;
+                    updateMenuDisplay();
+                } else {
+                    onlineHint.innerText = "模式：【特殊對戰】可自由選擇任一模式";
+                }
+            } else {
+                onlinePanel.style.display = "none";
+                startBtn.style.display = "inline-block";
+                if (peer) { peer.destroy(); peer = null; }
+                if (ghostRoomTimeout) { clearTimeout(ghostRoomTimeout); ghostRoomTimeout = null; }
+                isConnected = false;
+            }
+            updateMenuLabels();
+        }
+
+        function updateMenuLabels() {
+            const p1Title = document.getElementById("p1BoxTitle");
+            const p2Title = document.getElementById("p2BoxTitle");
+            const p1Hint = document.getElementById("p1MenuHint");
+            const p2Hint = document.getElementById("p2MenuHint");
+
+            if (gameType.startsWith('online')) {
+                if (gameType === 'online_normal') {
+                    p1Hint.innerHTML = "普通對戰已鎖定<strong>標準模式</strong>";
+                    p2Hint.innerHTML = "普通對戰已鎖定<strong>標準模式</strong>";
+                } else {
+                    p1Hint.innerHTML = isHost ? "使用 <strong>A / D</strong> 切換您的模式" : "等待對手選擇...";
+                    p2Hint.innerHTML = !isHost ? "使用 <strong>← / →</strong> 切換您的模式" : "等待對手選擇...";
+                }
+
+                if (isHost) {
+                    p1Title.innerHTML = "玩家 1 (藍) <span style='color: #00ffcc;'>(您的模式)</span>";
+                    p2Title.innerHTML = "玩家 2 (紅) <span style='color: #ff5252;'>(對手模式)</span>";
+                } else if (peer && !isHost) {
+                    p1Title.innerHTML = "玩家 1 (藍) <span style='color: #ff5252;'>(對手模式)</span>";
+                    p2Title.innerHTML = "玩家 2 (紅) <span style='color: #00ffcc;'>(您的模式)</span>";
+                } else {
+                    p1Title.innerHTML = "玩家 1 (藍)";
+                    p2Title.innerHTML = "玩家 2 (紅)";
+                }
+            } else {
+                p1Title.innerHTML = "玩家 1 (藍)";
+                p2Title.innerHTML = "玩家 2 (紅)";
+                p1Hint.innerHTML = "使用 <strong>A / D</strong> 切換模式";
+                p2Hint.innerHTML = "使用 <strong>← / →</strong> 切換模式";
+            }
+        }
+
+        function startMatchmaking() {
+            if (peer) peer.destroy();
+            if (ghostRoomTimeout) { clearTimeout(ghostRoomTimeout); ghostRoomTimeout = null; }
+            
+            document.getElementById("connectionStatus").innerText = "狀態：正在尋找對手...";
+            document.getElementById("findMatchBtn").style.display = "none";
+
+            const lobbyId = getActiveLobbyId();
+            peer = new Peer(lobbyId);
+
+            peer.on('open', () => {
+                isHost = true;
+                isConnected = false;
+                document.getElementById("connectionStatus").innerText = "狀態：等待其他玩家加入中 (您是玩家1)...";
+                updateMenuLabels();
+                
+                peer.on('connection', (connection) => {
+                    conn = connection;
+                    setupConnectionEvents();
+                    isConnected = true;
+                    startHostCountdown();
+                });
+            });
+
+            peer.on('error', (err) => {
+                if (err.type === 'unavailable-id') {
+                    peer.destroy();
+                    document.getElementById("connectionStatus").innerText = "狀態：發現現有房間，正在連線 (您是玩家2)...";
+                    
+                    peer = new Peer();
+                    peer.on('open', () => {
+                        isHost = false;
+                        updateMenuLabels();
+                        conn = peer.connect(lobbyId);
+                        setupConnectionEvents();
+                    });
+                } else {
+                    document.getElementById("connectionStatus").innerText = "狀態：連線發生錯誤 (" + err.type + ")";
+                    document.getElementById("findMatchBtn").style.display = "inline-block";
+                }
+            });
+        }
+
+        function startHostCountdown() {
+            let count = 3;
+            const timer = setInterval(() => {
+                if (count >= 0) {
+                    document.getElementById("connectionStatus").innerHTML = `<span style="font-size: 18px; color: #ffeb3b;">配對成功！ ${count} 秒後開始遊戲...</span>`;
+                    if (conn && conn.open) {
+                        conn.send({
+                            type: 'COUNTDOWN',
+                            count: count,
+                            p1Mode: p1ModeIndex,
+                            p2Mode: p2ModeIndex
+                        });
+                    }
+                    count--;
+                } else {
+                    clearInterval(timer);
+                    if (conn && conn.open) {
+                        conn.send({
+                            type: 'START',
+                            p1Mode: p1ModeIndex,
+                            p2Mode: p2ModeIndex
+                        });
+                    }
+                    startGame();
+                }
+            }, 1000);
+        }
+
+        function setupConnectionEvents() {
+            if (ghostRoomTimeout) { clearTimeout(ghostRoomTimeout); ghostRoomTimeout = null; }
+
+            conn.on('open', () => {
+                isConnected = true;
+                updateMenuLabels();
+                document.getElementById("connectionStatus").innerHTML = `<span style="font-size: 16px; color: #4caf50;">狀態：已成功連線，等待開始...</span>`;
+                
+                if (isHost) {
+                    conn.send({ type: 'MODE_SYNC', p1Mode: p1ModeIndex, p2Mode: p2ModeIndex });
+                } else {
+                    conn.send({ type: 'MODE_SYNC', p2Mode: p2ModeIndex });
+                    
+                    ghostRoomTimeout = setTimeout(() => {
+                        if (!gameStarted) {
+                            document.getElementById("connectionStatus").innerHTML = `<span style="font-size: 13px; color: #ff5252;">狀態：對方無回應（幽靈房間），請重新點擊匹配</span>`;
+                            document.getElementById("findMatchBtn").style.display = "inline-block";
+                            if (conn) conn.close();
+                            if (peer) peer.destroy();
+                        }
+                    }, 4000);
+                }
+            });
+
+            conn.on('data', (data) => {
+                if (ghostRoomTimeout) {
+                    clearTimeout(ghostRoomTimeout);
+                    ghostRoomTimeout = null;
+                }
+
+                if (data.type === 'MODE_SYNC') {
+                    if (gameType === 'online_special') {
+                        if (data.p1Mode !== undefined) p1ModeIndex = data.p1Mode;
+                        if (data.p2Mode !== undefined) p2ModeIndex = data.p2Mode;
+                    } else {
+                        p1ModeIndex = 0;
+                        p2ModeIndex = 0;
+                    }
+                    updateMenuDisplay();
+                }
+
+                if (data.type === 'REMATCH_REQ') {
+                    rematchState = 'received';
+                    updateGameOverUI();
+                } else if (data.type === 'REMATCH_ACCEPT') {
+                    triggerRematch();
+                } else if (data.type === 'REMATCH_DECLINE') {
+                    rematchState = 'declined_by_other';
+                    updateGameOverUI();
+                }
+
+                if (isHost) {
+                    if (data.type === 'KEYS') {
+                        clientKeys = data.keys;
+                    }
+                } else {
+                    if (data.type === 'COUNTDOWN') {
+                        if (gameType === 'online_special') {
+                            p1ModeIndex = data.p1Mode;
+                            p2ModeIndex = data.p2Mode;
+                        } else {
+                            p1ModeIndex = 0;
+                            p2ModeIndex = 0;
+                        }
+                        updateMenuDisplay();
+                        document.getElementById("connectionStatus").innerHTML = `<span style="font-size: 18px; color: #ffeb3b;">配對成功！ ${data.count} 秒後開始遊戲...</span>`;
+                    } else if (data.type === 'START') {
+                        if (gameType === 'online_special') {
+                            p1ModeIndex = data.p1Mode;
+                            p2ModeIndex = data.p2Mode;
+                        } else {
+                            p1ModeIndex = 0;
+                            p2ModeIndex = 0;
+                        }
+                        startOnlineGameClient();
+                    } else if (data.type === 'STATE') {
+                        syncGameState = data;
+                    }
+                }
+            });
+
+            conn.on('close', () => {
+                alert("對方已斷開連線！");
+                returnToMenu();
+            });
+        }
+
+        function changeMode(playerNum, direction) {
+            if (gameStarted) return;
+            if (gameType === 'online_normal') return; // 普通對戰鎖定標準模式
+            
+            if (gameType === 'online_special') {
+                if (isHost && playerNum !== 1) return;
+                if (!isHost && playerNum !== 2) return;
+            }
+
+            if (playerNum === 1) {
+                p1ModeIndex = (p1ModeIndex + direction + availableModes.length) % availableModes.length;
+                updateMenuDisplay();
+                if (gameType === 'online_special' && isHost && conn && conn.open) {
+                    conn.send({ type: 'MODE_SYNC', p1Mode: p1ModeIndex });
+                }
+            } else {
+                p2ModeIndex = (p2ModeIndex + direction + availableModes.length) % availableModes.length;
+                updateMenuDisplay();
+                if (gameType === 'online_special' && !isHost && conn && conn.open) {
+                    conn.send({ type: 'MODE_SYNC', p2Mode: p2ModeIndex });
+                }
+            }
+        }
+
+        // 鍵盤事件支援
+        window.addEventListener("keydown", (e) => {
+            if (["Space", "Enter", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "KeyS", "KeyW", "KeyA", "KeyD"].includes(e.code)) {
+                e.preventDefault();
+            }
+
+            if (!gameStarted) {
+                if (gameType === 'online_special') {
+                    if (isHost) {
+                        if (e.code === "KeyA") changeMode(1, -1);
+                        else if (e.code === "KeyD") changeMode(1, 1);
+                    } else {
+                        if (e.code === "ArrowLeft") changeMode(2, -1);
+                        else if (e.code === "ArrowRight") changeMode(2, 1);
+                    }
+                } else if (gameType === 'local') {
+                    if (e.code === "KeyA") changeMode(1, -1);
+                    else if (e.code === "KeyD") changeMode(1, 1);
+                    else if (e.code === "ArrowLeft") changeMode(2, -1);
+                    else if (e.code === "ArrowRight") changeMode(2, 1);
+                }
+            }
+
+            keys[e.code] = true;
+        });
+
+        window.addEventListener("keyup", (e) => keys[e.code] = false);
+
+        // --- 平板多點觸控全域追蹤系統 ---
+        const mobileControlsContainer = document.getElementById('mobileControlsContainer');
+
+        function handleTouchControls(e) {
+            e.preventDefault();
+            const buttons = document.querySelectorAll('.ctrl-btn');
+            const pressedCodes = new Set();
+
+            for (let i = 0; i < e.touches.length; i++) {
+                let t = e.touches[i];
+                buttons.forEach(btn => {
+                    let rect = btn.getBoundingClientRect();
+                    if (t.clientX >= rect.left && t.clientX <= rect.right &&
+                        t.clientY >= rect.top && t.clientY <= rect.bottom) {
+                        pressedCodes.add(btn.getAttribute('data-key'));
+                    }
+                });
+            }
+
+            buttons.forEach(btn => {
+                let code = btn.getAttribute('data-key');
+                let isPressed = pressedCodes.has(code);
+
+                if (isPressed && !keys[code] && !gameStarted) {
+                    if (gameType === 'online_special') {
+                        if (isHost && code === 'KeyA') changeMode(1, -1);
+                        else if (isHost && code === 'KeyD') changeMode(1, 1);
+                        else if (!isHost && code === 'ArrowLeft') changeMode(2, -1);
+                        else if (!isHost && code === 'ArrowRight') changeMode(2, 1);
+                    } else if (gameType === 'local') {
+                        if (code === 'KeyA') changeMode(1, -1);
+                        else if (code === 'KeyD') changeMode(1, 1);
+                        else if (code === 'ArrowLeft') changeMode(2, -1);
+                        else if (code === 'ArrowRight') changeMode(2, 1);
+                    }
+                }
+
+                keys[code] = isPressed;
+                if (isPressed) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+        }
+
+        ['touchstart', 'touchmove', 'touchend', 'touchcancel'].forEach(evtType => {
+            mobileControlsContainer.addEventListener(evtType, handleTouchControls, { passive: false });
+        });
+
+        document.querySelectorAll('.ctrl-btn').forEach(btn => {
+            const code = btn.getAttribute('data-key');
+            btn.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                keys[code] = true;
+                btn.classList.add('active');
+                if (!gameStarted) {
+                    if (gameType === 'online_special') {
+                        if (isHost && code === 'KeyA') changeMode(1, -1);
+                        else if (isHost && code === 'KeyD') changeMode(1, 1);
+                        else if (!isHost && code === 'ArrowLeft') changeMode(2, -1);
+                        else if (!isHost && code === 'ArrowRight') changeMode(2, 1);
+                    } else if (gameType === 'local') {
+                        if (code === 'KeyA') changeMode(1, -1);
+                        else if (code === 'KeyD') changeMode(1, 1);
+                        else if (code === 'ArrowLeft') changeMode(2, -1);
+                        else if (code === 'ArrowRight') changeMode(2, 1);
+                    }
+                }
+            });
+            btn.addEventListener('mouseup', (e) => { e.preventDefault(); keys[code] = false; btn.classList.remove('active'); });
+            btn.addEventListener('mouseleave', (e) => { e.preventDefault(); keys[code] = false; btn.classList.remove('active'); });
+        });
+
+        function updateMenuDisplay() {
+            document.getElementById("p1MenuMode").innerText = availableModes[p1ModeIndex].name;
+            document.getElementById("p2MenuMode").innerText = availableModes[p2ModeIndex].name;
+        }
+
+        let gameStarted = false;
+        let gameOver = false;
+        let winnerMessage = "";
+        let bullets = [];
+        let particles = [];
+        let clientKeys = {};
+        let syncGameState = null;
+
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 4 + 1;
+                this.vx = Math.cos(angle) * speed;
+                this.vy = Math.sin(angle) * speed;
+                this.alpha = 1;
+                this.decay = Math.random() * 0.03 + 0.02;
+            }
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.alpha -= this.decay;
+            }
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = Math.max(this.alpha, 0);
+                ctx.fillStyle = this.color;
+                ctx.fillRect(this.x, this.y, 4, 4);
+                ctx.restore();
+            }
+        }
+
+        class Player {
+            constructor(x, y, color, controls, shootKeys, type, speedMultiplier = 1, id = 1) {
+                this.x = x;
+                this.y = y;
+                this.width = 36;
+                this.height = 36;
+                this.color = color;
+                this.hp = 100;
+                this.controls = controls;
+                this.shootKeys = Array.isArray(shootKeys) ? shootKeys : [shootKeys];
+                this.type = type;
+                this.id = id;
+                this.facingRight = true;
+                this.cooldown = 0;
+                this.chargeLevel = 0;
+
+                this.baseSpeedMultiplier = speedMultiplier;
+                this.vx = 0;
+                this.vy = 0;
+                this.acceleration = 0.6 * speedMultiplier;
+                this.friction = 0.82;
+                this.maxSpeed = 4.5 * speedMultiplier;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.shadowColor = this.color;
+                ctx.shadowBlur = 10;
+                ctx.fillStyle = this.color;
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+                
+                ctx.fillStyle = "#ffffff";
+                const barrelX = this.facingRight ? this.x + this.width : this.x - 12;
+                ctx.fillRect(barrelX, this.y + this.height / 2 - 4, 12, 8);
+                
+                if (this.type === "charge" && this.chargeLevel > 0) {
+                    const previewW = 14 + this.chargeLevel * 0.6;
+                    const previewH = 8 + this.chargeLevel * 0.4;
+                    const previewX = this.facingRight ? this.x + this.width + 12 : this.x - 12 - previewW;
+                    ctx.fillStyle = this.color;
+                    ctx.shadowBlur = 15;
+                    ctx.fillRect(previewX, this.y + this.height / 2 - previewH / 2, previewW, previewH);
+                }
+                ctx.restore();
+                
+                ctx.fillStyle = "rgba(255,255,255,0.2)";
+                ctx.fillRect(this.x - 4, this.y - 18, this.width + 8, 8);
+                
+                ctx.fillStyle = "red";
+                ctx.fillRect(this.x - 4, this.y - 18, this.width + 8, 8);
+                ctx.fillStyle = "#00ffcc";
+                ctx.fillRect(this.x - 4, this.y - 18, (this.width + 8) * Math.max(this.hp / 100, 0), 8);
+
+                let isYou = false;
+                if (gameType.startsWith('online')) {
+                    if (isHost && this === player1) isYou = true;
+                    if (!isHost && this === player2) isYou = true;
+                }
+
+                ctx.fillStyle = isYou ? "#ffeb3b" : "#fff";
+                ctx.font = isYou ? "bold 11px 'Segoe UI'" : "10px 'Segoe UI'";
+                let labelText = Math.max(this.hp, 0).toFixed(this.hp % 1 !== 0 ? 1 : 0) + " HP";
+                if (isYou) {
+                    labelText = "(這是你) " + labelText;
+                }
+                ctx.fillText(labelText, this.x - 12, this.y - 23);
+            }
+
+            update(opponent, inputKeys) {
+                if (gameOver || !gameStarted) return;
+
+                if (opponent) {
+                    this.facingRight = opponent.x >= this.x;
+                }
+
+                let currentSpeedMult = this.baseSpeedMultiplier;
+                let chargeRate = 1.5;
+
+                if (this.type === "charge") {
+                    const playerArea = this.width * this.height;
+                    const previewW = 14 + this.chargeLevel * 0.6;
+                    const previewH = 8 + this.chargeLevel * 0.4;
+                    const bulletArea = previewW * previewH;
+
+                    if (bulletArea > playerArea * 4) {
+                        chargeRate = 1.5 / 4;       
+                        currentSpeedMult = 1.5;     
+                    } else {
+                        currentSpeedMult = 1.0;     
+                    }
+                }
+
+                this.acceleration = 0.6 * currentSpeedMult;
+                this.maxSpeed = 4.5 * currentSpeedMult;
+
+                if (inputKeys[this.controls.up]) this.vy -= this.acceleration;
+                if (inputKeys[this.controls.down]) this.vy += this.acceleration;
+                if (inputKeys[this.controls.left]) this.vx -= this.acceleration;
+                if (inputKeys[this.controls.right]) this.vx += this.acceleration;
+                
+                let isShootPressed = this.shootKeys.some(k => inputKeys[k]);
+
+                this.vx *= this.friction;
+                this.vy *= this.friction;
+
+                this.vx = Math.max(Math.min(this.vx, this.maxSpeed), -this.maxSpeed);
+                this.vy = Math.max(Math.min(this.vy, this.maxSpeed), -this.maxSpeed);
+
+                this.x += this.vx;
+                this.y += this.vy;
+
+                if (this.x < 0) { this.x = 0; this.vx = 0; }
+                if (this.x > canvas.width - this.width) { this.x = canvas.width - this.width; this.vx = 0; }
+                if (this.y < 0) { this.y = 0; this.vy = 0; }
+                if (this.y > canvas.height - this.height) { this.y = canvas.height - this.height; this.vy = 0; }
+
+                if (this.cooldown > 0) this.cooldown--;
+
+                if (this.type === "normal") {
+                    if (isShootPressed && this.cooldown === 0) {
+                        const bulletSpeed = this.facingRight ? 12 : -12;
+                        const bWidth = 18;
+                        const bulletX = this.facingRight ? this.x + this.width + 12 : this.x - 12 - bWidth;
+                        bullets.push({
+                            x: bulletX,
+                            y: this.y + this.height / 2 - 4,
+                            width: bWidth,
+                            height: 8,
+                            speed: bulletSpeed,
+                            color: this.color,
+                            ownerColor: this.color,
+                            owner: this.id,
+                            damage: 5
+                        });
+                        this.cooldown = 45; 
+                    }
+                } else if (this.type === "rapid") {
+                    if (isShootPressed && this.cooldown === 0) {
+                        const bulletSpeed = this.facingRight ? 14 : -14;
+                        const bWidth = 12;
+                        const bulletX = this.facingRight ? this.x + this.width + 12 : this.x - 12 - bWidth;
+                        bullets.push({
+                            x: bulletX,
+                            y: this.y + this.height / 2 - 3,
+                            width: bWidth,
+                            height: 6,
+                            speed: bulletSpeed,
+                            color: this.color,
+                            ownerColor: this.color,
+                            owner: this.id,
+                            damage: 1
+                        });
+                        this.cooldown = 1; 
+                    }
+                } else if (this.type === "charge") {
+                    if (isShootPressed) {
+                        if (this.cooldown === 0) {
+                            this.chargeLevel += chargeRate; 
+                        }
+                    } else {
+                        if (this.chargeLevel > 0 && this.cooldown === 0) {
+                            const bWidth = 14 + this.chargeLevel * 0.6;
+                            const bHeight = 8 + this.chargeLevel * 0.4;
+                            const bulletSpeed = this.facingRight ? 11 : -11;
+                            const bulletX = this.facingRight ? this.x + this.width + 12 : this.x - 12 - bWidth;
+                            const damage = 5 + this.chargeLevel * 1.2;
+
+                            bullets.push({
+                                x: bulletX,
+                                y: this.y + this.height / 2 - bHeight / 2,
+                                width: bWidth,
+                                height: bHeight,
+                                speed: bulletSpeed,
+                                color: this.color,
+                                ownerColor: this.color,
+                                owner: this.id,
+                                damage: damage
+                            });
+
+                            this.cooldown = 30; 
+                            this.chargeLevel = 0; 
+                        }
+                    }
+                }
+            }
+        }
+
+        let player1, player2;
+
+        function startGame() {
+            if (gameType === 'online_normal') {
+                p1ModeIndex = 0;
+                p2ModeIndex = 0;
+            }
+            initGameInstance(p1ModeIndex, p2ModeIndex);
+        }
+
+        function startOnlineGameClient() {
+            if (gameType === 'online_normal') {
+                p1ModeIndex = 0;
+                p2ModeIndex = 0;
+            }
+            initGameInstance(p1ModeIndex, p2ModeIndex);
+        }
+
+        function initGameInstance(p1Idx, p2Idx) {
+            gameStarted = true;
+            document.getElementById("startMenu").style.display = "none";
+            document.getElementById("gameOverMenu").style.display = "none";
+
+            const p1Chosen = availableModes[p1Idx].id;
+            const p2Chosen = availableModes[p2Idx].id;
+
+            let p1Speed = p1Chosen === 'rapid' ? 2.0 : 1.0;
+            let p2Speed = p2Chosen === 'rapid' ? 2.0 : 1.0;
+
+            let p1ShootKeys = ["Space"];
+            let p2ShootKeys = ["Enter"];
+
+            player1 = new Player(100, 220, "#4facf7", {up: "KeyW", down: "KeyS", left: "KeyA", right: "KeyD"}, p1ShootKeys, p1Chosen, p1Speed, 1);
+            player2 = new Player(660, 220, "#ff6b6b", {up: "ArrowUp", down: "ArrowDown", left: "ArrowLeft", right: "ArrowRight"}, p2ShootKeys, p2Chosen, p2Speed, 2);
+
+            document.getElementById("p1Title").innerText = `玩家 1 (${availableModes[p1Idx].name})`;
+            document.getElementById("p2Title").innerText = `玩家 2 (${availableModes[p2Idx].name})`;
+
+            if (gameType.startsWith('online')) {
+                if (isHost) {
+                    document.getElementById("instructionText").innerHTML = `
+                        <span class="highlight-p1">您是玩家 1 (藍)</span>: 使用 <strong>W, A, S, D</strong> 移動 | <strong>空白鍵</strong> 射擊 (房主)
+                    `;
+                } else {
+                    document.getElementById("instructionText").innerHTML = `
+                        <span class="highlight-p2">您是玩家 2 (紅)</span>: 使用 <strong>方向鍵</strong> 移動 | <strong>Enter</strong> 射擊 (加入者)
+                    `;
+                }
+            } else {
+                document.getElementById("instructionText").innerHTML = `
+                    <span class="highlight-p1">玩家1</span>: W,A,S,D 移動 | 空白鍵發射 &nbsp;|&nbsp; <span class="highlight-p2">玩家2</span>: 方向鍵移動 | Enter 發射
+                `;
+            }
+
+            bullets = [];
+            particles = [];
+            healthPack = null;
+            gameOver = false;
+            winnerMessage = "";
+            rematchState = 'none';
+
+            if (healthPackInterval) clearInterval(healthPackInterval);
+            if (gameType === 'local' || (gameType.startsWith('online') && isHost)) {
+                healthPackInterval = setInterval(() => {
+                    if (gameStarted && !gameOver && !healthPack) {
+                        healthPack = {
+                            x: Math.random() * (canvas.width - 100) + 50,
+                            y: Math.random() * (canvas.height - 100) + 50
+                        };
+                    }
+                }, 10000);
+            }
+        }
+
+        function triggerRematch() {
+            if (player1 && player2) {
+                player1.hp = 100;
+                player1.x = 100;
+                player1.y = 220;
+                player1.vx = 0;
+                player1.vy = 0;
+                player1.chargeLevel = 0;
+
+                player2.hp = 100;
+                player2.x = 660;
+                player2.y = 220;
+                player2.vx = 0;
+                player2.vy = 0;
+                player2.chargeLevel = 0;
+
+                bullets = [];
+                particles = [];
+                healthPack = null;
+                gameOver = false;
+                winnerMessage = "";
+                rematchState = 'none';
+
+                if (healthPackInterval) clearInterval(healthPackInterval);
+                if (gameType === 'local' || (gameType.startsWith('online') && isHost)) {
+                    healthPackInterval = setInterval(() => {
+                        if (gameStarted && !gameOver && !healthPack) {
+                            healthPack = {
+                                x: Math.random() * (canvas.width - 100) + 50,
+                                y: Math.random() * (canvas.height - 100) + 50
+                            };
+                        }
+                    }, 10000);
+                }
+                
+                document.getElementById("gameOverMenu").style.display = "none";
+            }
+        }
+
+        function handleRematchClick() {
+            if (gameType === 'local') {
+                triggerRematch();
+            } else {
+                if (rematchState === 'none') {
+                    rematchState = 'sent';
+                    updateGameOverUI();
+                    if (conn && conn.open) {
+                        conn.send({ type: 'REMATCH_REQ' });
+                    }
+                } else if (rematchState === 'received') {
+                    if (conn && conn.open) {
+                        conn.send({ type: 'REMATCH_ACCEPT' });
+                    }
+                    triggerRematch();
+                }
+            }
+        }
+
+        function handleDeclineClick() {
+            rematchState = 'declined_by_me';
+            updateGameOverUI();
+            if (conn && conn.open) {
+                conn.send({ type: 'REMATCH_DECLINE' });
+            }
+        }
+
+        function handleCancelClick() {
+            rematchState = 'none';
+            updateGameOverUI();
+            if (conn && conn.open) {
+                conn.send({ type: 'REMATCH_DECLINE' });
+            }
+        }
+
+        function updateGameOverUI() {
+            const statusText = document.getElementById("gameOverStatusText");
+            const btnContainer = document.getElementById("gameOverButtonContainer");
+
+            if (gameType === 'local') {
+                statusText.innerText = "請選擇下一步操作";
+                btnContainer.innerHTML = `
+                    <button class="start-action-btn" id="rematchActionBtn" onclick="handleRematchClick()">再來一局 (Rematch)</button>
+                    <button class="restart-btn" style="padding: 10px 25px; font-size: 15px; background-color: #d9534f; border-color: #d43f3a;" onclick="returnToMenu()">返回選單</button>
+                `;
+                return;
+            }
+
+            if (rematchState === 'none') {
+                statusText.innerText = "請選擇下一步操作";
+                btnContainer.innerHTML = `
+                    <button class="start-action-btn" id="rematchActionBtn" onclick="handleRematchClick()" style="background: linear-gradient(135deg, #28a745, #218838);">再來一局 (發送邀請)</button>
+                    <button class="restart-btn" style="padding: 10px 25px; font-size: 15px; background-color: #d9534f; border-color: #d43f3a;" onclick="returnToMenu()">返回選單 / 重新匹配</button>
+                `;
+            } else if (rematchState === 'sent') {
+                statusText.innerText = "已向對手發送再來一局邀請，等待回應中...";
+                btnContainer.innerHTML = `
+                    <button class="start-action-btn" onclick="handleCancelClick()" style="background: #6c757d; border-color: #545b62;">取消邀請並返回</button>
+                `;
+            } else if (rematchState === 'received') {
+                statusText.innerHTML = `<span style="color: #00ffcc; font-size: 16px;">對手邀請您再來一局！</span>`;
+                btnContainer.innerHTML = `
+                    <button class="start-action-btn" onclick="handleRematchClick()" style="background: linear-gradient(135deg, #ffc107, #e0a800); color: #000; border-color: #d39e00;">接受邀請 (Accept)</button>
+                    <button class="restart-btn" onclick="handleDeclineClick()" style="padding: 10px 25px; font-size: 15px; background-color: #d9534f; border-color: #d43f3a;">拒絕 (Decline)</button>
+                `;
+            } else if (rematchState === 'declined_by_me') {
+                statusText.innerText = "您已拒絕再來一局邀請。";
+                btnContainer.innerHTML = `
+                    <button class="restart-btn" style="padding: 10px 25px; font-size: 15px; background-color: #d9534f; border-color: #d43f3a;" onclick="returnToMenu()">返回選單 / 重新匹配</button>
+                `;
+            } else if (rematchState === 'declined_by_other') {
+                statusText.innerText = "對手已拒絕再來一局邀請。";
+                btnContainer.innerHTML = `
+                    <button class="restart-btn" style="padding: 10px 25px; font-size: 15px; background-color: #d9534f; border-color: #d43f3a;" onclick="returnToMenu()">返回選單 / 重新匹配</button>
+                `;
+            }
+        }
+
+        function showGameOver(msg) {
+            gameOver = true;
+            winnerMessage = msg;
+            if (healthPackInterval) {
+                clearInterval(healthPackInterval);
+                healthPackInterval = null;
+            }
+            document.getElementById("gameOverTitleText").innerText = winnerMessage;
+            rematchState = 'none';
+            updateGameOverUI();
+            document.getElementById("gameOverMenu").style.display = "flex";
+        }
+
+        function returnToMenu() {
+            gameStarted = false;
+            if (healthPackInterval) {
+                clearInterval(healthPackInterval);
+                healthPackInterval = null;
+            }
+            healthPack = null;
+            document.getElementById("startMenu").style.display = "flex";
+            document.getElementById("gameOverMenu").style.display = "none";
+            document.getElementById("instructionText").innerHTML = `<span class="highlight-p1">玩家1</span>: W,A,S,D 移動 | 空白鍵發射 &nbsp;|&nbsp; <span class="highlight-p2">玩家2</span>: 方向鍵移動 | Enter 發射`;
+            document.getElementById("findMatchBtn").style.display = "inline-block";
+            document.getElementById("connectionStatus").innerText = "狀態：尚未開始匹配";
+            if (peer) { peer.destroy(); peer = null; }
+            if (ghostRoomTimeout) { clearTimeout(ghostRoomTimeout); ghostRoomTimeout = null; }
+            isConnected = false;
+            updateMenuLabels();
+        }
+
+        function checkCollision(rect1, rect2) {
+            return rect1.x < rect2.x + rect2.width &&
+                   rect1.x + rect1.width > rect2.x &&
+                   rect1.y < rect2.y + rect2.height &&
+                   rect1.y + rect1.height > rect2.y;
+        }
+
+        function createHitParticles(x, y, color) {
+            for (let i = 0; i < 12; i++) {
+                particles.push(new Particle(x, y, color));
+            }
+        }
+
+        function drawHealthPack() {
+            if (!healthPack) return;
+            ctx.save();
+            ctx.shadowColor = '#00ff00';
+            ctx.shadowBlur = 12;
+            
+            const cx = healthPack.x;
+            const cy = healthPack.y;
+            const arm = 5;
+            const total = 14;
+
+            ctx.beginPath();
+            ctx.moveTo(cx - arm, cy - total);
+            ctx.lineTo(cx + arm, cy - total);
+            ctx.lineTo(cx + arm, cy - arm);
+            ctx.lineTo(cx + total, cy - arm);
+            ctx.lineTo(cx + total, cy + arm);
+            ctx.lineTo(cx + arm, cy + arm);
+            ctx.lineTo(cx + arm, cy + total);
+            ctx.lineTo(cx - arm, cy + total);
+            ctx.lineTo(cx - arm, cy + arm);
+            ctx.lineTo(cx - total, cy + arm);
+            ctx.lineTo(cx - total, cy - arm);
+            ctx.lineTo(cx - arm, cy - arm);
+            ctx.closePath();
+
+            ctx.strokeStyle = '#00ff00';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            ctx.fillStyle = 'rgba(0, 255, 0, 0.15)';
+            ctx.fill();
+            ctx.restore();
+        }
+
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (gameStarted && !gameOver) {
+                if (gameType === 'local' || (gameType.startsWith('online') && isHost)) {
+                    let p2Input = gameType.startsWith('online') ? clientKeys : keys;
+                    
+                    player1.update(player2, keys);
+                    player2.update(player1, p2Input);
+
+                    // 檢查補血包碰撞
+                    if (healthPack) {
+                        let hpBox = { x: healthPack.x - 16, y: healthPack.y - 16, width: 32, height: 32 };
+                        if (checkCollision(player1, hpBox)) {
+                            player1.hp = Math.min(100, player1.hp + 50);
+                            createHitParticles(healthPack.x, healthPack.y, '#00ff00');
+                            healthPack = null;
+                        } else if (checkCollision(player2, hpBox)) {
+                            player2.hp = Math.min(100, player2.hp + 50);
+                            createHitParticles(healthPack.x, healthPack.y, '#00ff00');
+                            healthPack = null;
+                        }
+                    }
+
+                    let bulletsToRemove = new Set();
+
+                    for (let i = 0; i < bullets.length; i++) {
+                        let b = bullets[i];
+                        b.x += b.speed;
+                        if (b.x < -100 || b.x > canvas.width + 100) {
+                            bulletsToRemove.add(i);
+                        }
+                    }
+
+                    for (let i = 0; i < bullets.length; i++) {
+                        if (bulletsToRemove.has(i)) continue;
+                        let b1 = bullets[i];
+                        for (let j = i + 1; j < bullets.length; j++) {
+                            if (bulletsToRemove.has(j)) continue;
+                            let b2 = bullets[j];
+
+                            if (b1.owner !== b2.owner && checkCollision(b1, b2)) {
+                                if (Math.abs(b1.damage - b2.damage) < 0.01) {
+                                    bulletsToRemove.add(i);
+                                    bulletsToRemove.add(j);
+                                    createHitParticles((b1.x + b2.x) / 2, (b1.y + b2.y) / 2, '#ffeb3b');
+                                } else if (b1.damage > b2.damage) {
+                                    let oldDamage = b1.damage;
+                                    b1.damage -= b2.damage;
+                                    let damageRatio = Math.max(0.15, b1.damage / oldDamage);
+
+                                    let oldWidth = b1.width;
+                                    let oldHeight = b1.height;
+
+                                    b1.width = Math.max(6, oldWidth * damageRatio);
+                                    b1.height = Math.max(4, oldHeight * damageRatio);
+
+                                    let centerY = b1.y + oldHeight / 2;
+                                    b1.y = centerY - b1.height / 2;
+                                    if (b1.speed > 0) {
+                                        b1.x += (oldWidth - b1.width);
+                                    }
+
+                                    bulletsToRemove.add(j);
+                                    createHitParticles(b2.x, b2.y + b2.height / 2, b2.color);
+                                } else {
+                                    let oldDamage = b2.damage;
+                                    b2.damage -= b1.damage;
+                                    let damageRatio = Math.max(0.15, b2.damage / oldDamage);
+
+                                    let oldWidth = b2.width;
+                                    let oldHeight = b2.height;
+
+                                    b2.width = Math.max(6, oldWidth * damageRatio);
+                                    b2.height = Math.max(4, oldHeight * damageRatio);
+
+                                    let centerY = b2.y + oldHeight / 2;
+                                    b2.y = centerY - b2.height / 2;
+                                    if (b2.speed > 0) {
+                                        b2.x += (oldWidth - b2.width);
+                                    }
+
+                                    bulletsToRemove.add(i);
+                                    createHitParticles(b1.x, b1.y + b1.height / 2, b1.color);
+                                }
+                            }
+                        }
+                    }
+
+                    for (let i = 0; i < bullets.length; i++) {
+                        if (bulletsToRemove.has(i)) continue;
+                        let b = bullets[i];
+                        let target = b.owner === 1 ? player2 : player1;
+
+                        if (checkCollision(b, target)) {
+                            target.hp -= b.damage;
+                            createHitParticles(b.x, b.y + b.height / 2, target.color);
+                            bulletsToRemove.add(i);
+
+                            if (target.hp <= 0) {
+                                const loserName = target === player1 ? "玩家 1 (藍)" : "玩家 2 (紅)";
+                                showGameOver(`${loserName} 輸了！`);
+                            }
+                        }
+                    }
+
+                    let sortedIndices = Array.from(bulletsToRemove).sort((a, b) => b - a);
+                    for (let idx of sortedIndices) {
+                        bullets.splice(idx, 1);
+                    }
+
+                    if (gameType.startsWith('online') && conn && conn.open) {
+                        conn.send({
+                            type: 'STATE',
+                            p1: { x: player1.x, y: player1.y, hp: player1.hp, facingRight: player1.facingRight, chargeLevel: player1.chargeLevel },
+                            p2: { x: player2.x, y: player2.y, hp: player2.hp, facingRight: player2.facingRight, chargeLevel: player2.chargeLevel },
+                            bullets: bullets,
+                            healthPack: healthPack,
+                            gameOver: gameOver,
+                            winnerMessage: winnerMessage
+                        });
+                    }
+                } else if (gameType.startsWith('online') && !isHost) {
+                    if (conn && conn.open) {
+                        conn.send({ type: 'KEYS', keys: keys });
+                    }
+                    if (syncGameState) {
+                        player1.x = syncGameState.p1.x;
+                        player1.y = syncGameState.p1.y;
+                        player1.hp = syncGameState.p1.hp;
+                        player1.facingRight = syncGameState.p1.facingRight;
+                        player1.chargeLevel = syncGameState.p1.chargeLevel;
+
+                        player2.x = syncGameState.p2.x;
+                        player2.y = syncGameState.p2.y;
+                        player2.hp = syncGameState.p2.hp;
+                        player2.facingRight = syncGameState.p2.facingRight;
+                        player2.chargeLevel = syncGameState.p2.chargeLevel;
+
+                        bullets = syncGameState.bullets;
+                        healthPack = syncGameState.healthPack;
+                        if (syncGameState.gameOver && !gameOver) {
+                            showGameOver(syncGameState.winnerMessage);
+                        }
+                    }
+                }
+            }
+
+            drawHealthPack();
+
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                let b = bullets[i];
+                ctx.save();
+                ctx.shadowColor = b.color;
+                ctx.shadowBlur = 8;
+                ctx.fillStyle = b.color;
+                ctx.fillRect(b.x, b.y, b.width, b.height);
+                ctx.restore();
+            }
+
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                p.update();
+                p.draw();
+                if (p.alpha <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+
+            if (gameStarted) {
+                player1.draw();
+                player2.draw();
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        gameLoop();
+    </script>
+</body>
+</html>
