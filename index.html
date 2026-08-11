@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>電腦連機射擊</title>
-    <!-- 引入 PeerJS 用於 P2P 聯機 -->
+    <title>電腦連機射擊 (介面優化版)</title>
     <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <style>
         body {
@@ -16,272 +15,84 @@
             padding: 10px;
             user-select: none;
             -webkit-user-select: none;
+            touch-action: none;
+            overscroll-behavior: none;
         }
-        h1 {
-            margin: 5px 0;
-            font-size: 24px;
-            letter-spacing: 2px;
-            text-shadow: 0 0 10px rgba(255,255,255,0.2);
-        }
-        .instructions {
-            margin-bottom: 8px;
-            font-size: 13px;
-            color: #ccc;
-        }
-        .highlight-p1 { color: #4facf7; font-weight: bold; text-shadow: 0 0 8px rgba(79,172,247,0.5); }
-        .highlight-p2 { color: #ff6b6b; font-weight: bold; text-shadow: 0 0 8px rgba(255,107,107,0.5); }
+        h1 { margin: 5px 0; font-size: 24px; letter-spacing: 2px; text-shadow: 0 0 10px rgba(255,255,255,0.2); }
+        .instructions { margin-bottom: 8px; font-size: 13px; color: #ccc; }
+        .highlight-p1 { color: #4facf7; font-weight: bold; }
+        .highlight-p2 { color: #ff6b6b; font-weight: bold; }
         
-        .canvas-container {
-            position: relative;
-            max-width: 800px;
-            margin: 0 auto;
-        }
+        .canvas-container { position: relative; max-width: 800px; margin: 0 auto; }
         canvas {
-            background-color: #0d0d0d;
-            border: 4px solid #333;
-            border-radius: 12px;
-            box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
-            width: 100%;
-            max-width: 800px;
-            height: auto;
-            display: block;
-            margin: 0 auto;
+            background-color: #0d0d0d; border: 4px solid #333; border-radius: 12px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.8); width: 100%; height: auto; display: block; margin: 0 auto;
         }
 
-        /* 開始選單畫面樣式 */
-        #startMenu {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(13, 13, 13, 0.96);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            border-radius: 8px;
-            z-index: 10;
-            backdrop-filter: blur(5px);
-            padding: 15px;
-            box-sizing: border-box;
+        #startMenu, #gameOverMenu {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(13, 13, 13, 0.96); display: flex; flex-direction: column;
+            justify-content: center; align-items: center; border-radius: 8px; z-index: 10;
+            backdrop-filter: blur(5px); padding: 15px; box-sizing: border-box;
         }
-        #startMenu h2 {
-            font-size: 20px;
-            margin-bottom: 8px;
-            color: #fff;
-            text-shadow: 0 0 10px rgba(255,255,255,0.3);
+        #gameOverMenu { display: none; z-index: 12; }
+        #startMenu h2 { font-size: 20px; margin-bottom: 8px; color: #fff; }
+        
+        .menu-top-row { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; justify-content: center; }
+        .menu-option-group { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.15); padding: 8px 12px; border-radius: 8px; }
+        .menu-option-group label { font-size: 12px; color: #aaa; display: block; margin-bottom: 4px; }
+        
+        .menu-selectors { display: flex; gap: 15px; margin-bottom: 12px; flex-wrap: wrap; justify-content: center; }
+        .menu-player-box { background: rgba(255, 255, 255, 0.05); border: 2px solid rgba(255, 255, 255, 0.1); border-radius: 10px; padding: 10px; width: 210px; box-sizing: border-box; }
+        .menu-player-box h3 { margin: 0 0 6px 0; font-size: 14px; }
+        
+        .menu-single-box { background: rgba(255, 255, 255, 0.05); border: 2px solid #ffeb3b; border-radius: 10px; padding: 10px; width: 280px; box-sizing: border-box; }
+        .menu-single-box h3 { margin: 0 0 6px 0; font-size: 14px; color: #ffeb3b; }
+
+        .mode-buttons-container { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+        .mode-choice-btn {
+            background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2);
+            color: #ccc; padding: 5px; font-size: 11px; border-radius: 5px; cursor: pointer; text-align: left;
+            display: flex; justify-content: space-between; align-items: center; transition: all 0.2s;
         }
-        .menu-top-row {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 10px;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
-        .menu-option-group {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            padding: 8px 12px;
-            border-radius: 8px;
-            text-align: center;
-        }
-        .menu-option-group label {
-            font-size: 12px;
-            color: #aaa;
-            display: block;
-            margin-bottom: 4px;
-        }
-        .menu-selectors {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 12px;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
-        .menu-player-box {
-            background: rgba(255, 255, 255, 0.05);
-            border: 2px solid rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
-            padding: 8px;
-            width: 180px;
-            text-align: center;
-        }
-        .menu-player-box h3 {
-            margin: 0 0 4px 0;
-            font-size: 13px;
-        }
-        .selected-mode-display {
-            font-size: 15px;
-            font-weight: bold;
-            margin: 4px 0;
-            padding: 4px;
-            background: rgba(0, 0, 0, 0.4);
-            border-radius: 6px;
-        }
-        .menu-hint {
-            font-size: 11px;
-            color: #aaa;
-            margin-top: 2px;
-        }
+        .mode-choice-btn.active { background: #4facf7; color: #fff; border-color: #fff; font-weight: bold; }
+        .p2-box .mode-choice-btn.active { background: #ff6b6b; }
+        .menu-single-box .mode-choice-btn.active { background: #ffeb3b; color: #000; border-color: #fff; }
+        
         .start-action-btn {
-            background: linear-gradient(135deg, #28a745, #218838);
-            color: #fff;
-            border: 2px solid #57d172;
-            padding: 8px 25px;
-            font-size: 15px;
-            font-weight: bold;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.2s;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-            margin-top: 5px;
-            touch-action: manipulation;
+            background: linear-gradient(135deg, #28a745, #218838); color: #fff; border: 2px solid #57d172;
+            padding: 8px 25px; font-size: 15px; font-weight: bold; border-radius: 8px; cursor: pointer;
+            transition: all 0.2s; box-shadow: 0 4px 10px rgba(0,0,0,0.5); margin-top: 5px;
         }
-        .start-action-btn:hover {
-            background: linear-gradient(135deg, #218838, #1e7e34);
-            transform: translateY(-2px);
-        }
-        .menu-btn-choice {
-            background: #333;
-            color: #fff;
-            border: 1px solid #555;
-            padding: 5px 10px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: bold;
-            font-size: 12px;
-            margin: 2px;
-            touch-action: manipulation;
-        }
-        .menu-btn-choice.active {
-            background: #4facf7;
-            border-color: #fff;
-        }
+        .start-action-btn:hover { transform: translateY(-2px); }
+        .menu-btn-choice { background: #333; color: #fff; border: 1px solid #555; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 12px; margin: 2px; }
+        .menu-btn-choice.active { background: #4facf7; border-color: #fff; }
 
-        /* 遊戲結束互動選單畫面 */
-        #gameOverMenu {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(13, 13, 13, 0.95);
-            display: none;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            border-radius: 8px;
-            z-index: 12;
-            backdrop-filter: blur(5px);
-            padding: 15px;
-            box-sizing: border-box;
-        }
-
-        /* 線上匹配狀態面板 */
         #onlineConfigPanel {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            padding: 8px 15px;
-            border-radius: 8px;
-            margin-bottom: 10px;
-            width: 100%;
-            max-width: 380px;
-            box-sizing: border-box;
-            text-align: center;
+            background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.15);
+            padding: 12px; border-radius: 8px; margin-bottom: 10px; width: 100%; max-width: 440px; box-sizing: border-box;
         }
-        .online-btn {
-            background: #007bff;
-            color: #fff;
-            border: none;
-            padding: 8px 20px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: bold;
-            font-size: 13px;
-            margin-top: 4px;
-            touch-action: manipulation;
+        .quick-match-btn {
+            background: linear-gradient(135deg, #007bff, #0056b3); color: #fff; border: 2px solid #4facf7;
+            padding: 10px 20px; font-size: 15px; font-weight: bold; border-radius: 8px; cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,123,255,0.4); width: 100%; transition: all 0.2s;
         }
-        .online-btn:hover { background: #0056b3; }
-        #connectionStatus {
-            font-size: 12px;
-            color: #ffc107;
-            margin-top: 6px;
-            font-weight: bold;
-        }
+        .quick-match-btn:active { transform: scale(0.98); }
+        .cancel-match-btn { background: #6c757d; border-color: #5a6268; margin-top: 8px; padding: 6px 12px; font-size: 13px; border-radius: 6px; color: #fff; cursor: pointer;}
 
-        /* 觸控控制面板樣式 */
-        .mobile-controls {
-            display: flex;
-            justify-content: space-around;
-            max-width: 800px;
-            margin: 10px auto 0 auto;
-            gap: 10px;
-            touch-action: none;
-        }
-        .player-control-group {
-            flex: 1;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 10px;
-            padding: 8px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        .player-control-group h4 {
-            margin: 0 0 5px 0;
-            font-size: 12px;
-        }
-        .control-row {
-            display: flex;
-            justify-content: center;
-            gap: 5px;
-            margin-bottom: 5px;
-        }
-        .ctrl-btn {
-            background-color: #333;
-            color: #fff;
-            border: 2px solid #555;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: bold;
-            padding: 10px 0;
-            width: 45px;
-            height: 45px;
-            touch-action: none;
-            cursor: pointer;
-            user-select: none;
-            -webkit-user-select: none;
-        }
-        .ctrl-btn.active {
-            background-color: #666;
-            transform: scale(0.95);
-        }
-        .wide-btn {
-            width: 100px;
-            font-size: 12px;
-            height: 40px;
-        }
-        .p1-panel h4 { color: #4facf7; }
-        .p2-panel h4 { color: #ff6b6b; }
+        .mobile-controls { display: flex; justify-content: space-around; max-width: 800px; margin: 10px auto 0 auto; gap: 10px; }
+        .player-control-group { flex: 1; background: rgba(255, 255, 255, 0.05); border-radius: 10px; padding: 8px; border: 1px solid rgba(255, 255, 255, 0.1); }
+        .control-row { display: flex; justify-content: center; gap: 5px; margin-bottom: 5px; }
+        .ctrl-btn { background-color: #333; color: #fff; border: 2px solid #555; border-radius: 8px; font-size: 14px; font-weight: bold; padding: 10px 0; width: 45px; height: 45px; cursor: pointer; }
+        .ctrl-btn.active { background-color: #666; transform: scale(0.95); }
+        .wide-btn { width: 100px; font-size: 12px; height: 40px; }
+        .p1-panel h4 { margin: 0 0 5px 0; color: #4facf7; font-size: 12px; }
+        .p2-panel h4 { margin: 0 0 5px 0; color: #ff6b6b; font-size: 12px; }
         .p1-panel .ctrl-btn.active { background-color: #4facf7; border-color: #fff; }
         .p2-panel .ctrl-btn.active { background-color: #ff6b6b; border-color: #fff; }
 
-        .global-controls {
-            margin-top: 8px;
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-        }
-        .restart-btn {
-            background-color: #444;
-            color: #fff;
-            border: 2px solid #777;
-            padding: 8px 20px;
-            border-radius: 6px;
-            font-size: 14px;
-            cursor: pointer;
-            touch-action: manipulation;
-        }
-        .restart-btn:active { background-color: #888; }
+        .global-controls { margin-top: 8px; display: flex; justify-content: center; gap: 10px; }
+        .restart-btn { background-color: #444; color: #fff; border: 2px solid #777; padding: 8px 20px; border-radius: 6px; font-size: 14px; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -294,10 +105,8 @@
     <div class="canvas-container">
         <canvas id="gameCanvas" width="800" height="500"></canvas>
         
-        <!-- 開始選單畫面 -->
         <div id="startMenu">
             <h2>對戰設定與模式選擇</h2>
-            
             <div class="menu-top-row">
                 <div class="menu-option-group">
                     <label>對戰類型</label>
@@ -310,76 +119,184 @@
             <button class="start-action-btn" id="startBtn" onclick="startGame()">開始本地對戰</button>
 
             <div id="onlineConfigPanel" style="display: none;">
-                <div id="onlineModeHint" style="font-size: 12px; color: #aaa; margin-bottom: 4px;">模式：標準模式（固定）</div>
-                <button class="online-btn" id="findMatchBtn" onclick="startMatchmaking()">開始尋找對手</button>
-                <div id="connectionStatus">狀態：尚未開始匹配</div>
+                <div id="onlineModeHint" style="font-size: 12px; color: #ccc; margin-bottom: 8px;">【特殊對戰】選擇您的模式後即可開始匹配</div>
+                
+                <div id="matchBtnContainer">
+                    <button class="quick-match-btn" onclick="startMatchmaking()">尋找對手 (自動匹配)</button>
+                </div>
+
+                <div id="matchStatusContainer" style="display: none;">
+                    <div id="matchStatusText" style="color: #00ffcc; font-size: 14px; font-weight: bold;">正在尋找同模式玩家...</div>
+                    <div id="matchStatusSub" style="color: #aaa; font-size: 11px; margin-top: 3px;">搜尋中 0s</div>
+                    <button class="cancel-match-btn" onclick="cancelMatchmaking()">取消匹配</button>
+                </div>
             </div>
 
-            <div class="menu-selectors" style="margin-top: 10px;">
+            <!-- 本地雙人的雙選單 -->
+            <div class="menu-selectors" id="menuSelectorsContainer" style="margin-top: 8px;">
                 <div class="menu-player-box" style="border-color: #4facf7;">
                     <h3 style="color: #4facf7;" id="p1BoxTitle">玩家 1 (藍)</h3>
-                    <div class="selected-mode-display" id="p1MenuMode">標準模式</div>
-                    <div class="menu-hint" id="p1MenuHint">使用 <strong>A / D</strong> 切換模式</div>
+                    <div class="mode-buttons-container" id="p1ModeContainer">
+                        <button class="mode-choice-btn active" onclick="selectModeDirect(1, 0)">標準模式 <span>標準冷卻/傷害</span></button>
+                        <button class="mode-choice-btn" onclick="selectModeDirect(1, 1)">2倍速連發 <span>移動更快、子彈小</span></button>
+                        <button class="mode-choice-btn" onclick="selectModeDirect(1, 2)">蓄力模式 <span>按住集氣大彈波</span></button>
+                    </div>
                 </div>
-                <div class="menu-player-box" id="p2MenuBox" style="border-color: #ff6b6b;">
+                <div class="menu-player-box p2-box" id="p2MenuBox" style="border-color: #ff6b6b;">
                     <h3 id="p2BoxTitle" style="color: #ff6b6b;">玩家 2 (紅)</h3>
-                    <div class="selected-mode-display" id="p2MenuMode">標準模式</div>
-                    <div class="menu-hint" id="p2MenuHint">使用 <strong>← / →</strong> 切換模式</div>
+                    <div class="mode-buttons-container" id="p2ModeContainer">
+                        <button class="mode-choice-btn active" onclick="selectModeDirect(2, 0)">標準模式 <span>標準冷卻/傷害</span></button>
+                        <button class="mode-choice-btn" onclick="selectModeDirect(2, 1)">2倍速連發 <span>移動更快、子彈小</span></button>
+                        <button class="mode-choice-btn" onclick="selectModeDirect(2, 2)">蓄力模式 <span>按住集氣大彈波</span></button>
+                    </div>
                 </div>
             </div>
+
+            <!-- 線上特殊對戰的單一黃色選單 -->
+            <div class="menu-selectors" id="onlineSpecialSelectorContainer" style="display: none; margin-top: 8px;">
+                <div class="menu-single-box">
+                    <h3>您的模式選擇</h3>
+                    <div class="mode-buttons-container" id="singleModeContainer">
+                        <button class="mode-choice-btn active" onclick="selectSingleMode(0)">標準模式 <span>標準冷卻/傷害</span></button>
+                        <button class="mode-choice-btn" onclick="selectSingleMode(1)">2倍速連發 <span>移動更快、子彈小</span></button>
+                        <button class="mode-choice-btn" onclick="selectSingleMode(2)">蓄力模式 <span>按住集氣大彈波</span></button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="menuModeHintText" style="font-size: 11px; color: #aaa;">提示：可直接點擊按鈕，或用 A/D 與 ←/→ 切換模式</div>
         </div>
 
-        <!-- 遊戲結束互動選單畫面 -->
         <div id="gameOverMenu">
             <h2 id="gameOverTitleText" style="font-size: 28px; margin-bottom: 10px; color: #ff5252;">遊戲結束</h2>
-            <div id="gameOverStatusText" style="font-size: 15px; color: #ffeb3b; margin-bottom: 18px; text-align: center; padding: 0 20px;">請選擇下一步操作</div>
+            <div id="gameOverStatusText" style="font-size: 15px; color: #ffeb3b; margin-bottom: 18px; padding: 0 20px;">請選擇下一步操作</div>
             <div style="display: flex; gap: 15px; flex-wrap: wrap; justify-content: center;" id="gameOverButtonContainer">
-                <button class="start-action-btn" id="rematchActionBtn" onclick="handleRematchClick()">再來一局 (Rematch)</button>
-                <button class="restart-btn" id="secondaryActionBtn" style="padding: 10px 25px; font-size: 15px; background-color: #d9534f; border-color: #d43f3a;" onclick="returnToMenu()">返回選單</button>
+                <button class="start-action-btn" id="rematchActionBtn" onclick="handleRematchClick()">再來一局 (原班人馬)</button>
+                <button class="restart-btn" style="background-color: #d9534f; border-color: #d43f3a;" onclick="returnToMenu()">返回選單</button>
             </div>
         </div>
     </div>
 
-    <!-- 觸控控制面板 -->
-    <div class="mobile-controls" id="mobileControlsContainer">
+    <!-- 觸控控制 -->
+    <div class="mobile-controls">
         <div class="player-control-group p1-panel">
-            <h4 id="p1Title">玩家 1 (藍)</h4>
-            <div class="control-row">
-                <button class="ctrl-btn" data-key="KeyW">W</button>
-            </div>
+            <h4 id="p1Title">玩家 1</h4>
+            <div class="control-row"><button class="ctrl-btn" data-key="KeyW">W</button></div>
             <div class="control-row">
                 <button class="ctrl-btn" data-key="KeyA">A</button>
                 <button class="ctrl-btn" data-key="KeyS">S</button>
                 <button class="ctrl-btn" data-key="KeyD">D</button>
             </div>
-            <div class="control-row">
-                <button class="ctrl-btn wide-btn" id="p1ShootBtn" data-key="Space">發射 (Space)</button>
-            </div>
+            <div class="control-row"><button class="ctrl-btn wide-btn" data-key="Space">發射 (Space)</button></div>
         </div>
-
-        <div class="player-control-group p2-panel" id="p2ControlPanel">
-            <h4 id="p2Title">玩家 2 (紅)</h4>
-            <div class="control-row">
-                <button class="ctrl-btn" data-key="ArrowUp">▲</button>
-            </div>
+        <div class="player-control-group p2-panel">
+            <h4 id="p2Title">玩家 2</h4>
+            <div class="control-row"><button class="ctrl-btn" data-key="ArrowUp">▲</button></div>
             <div class="control-row">
                 <button class="ctrl-btn" data-key="ArrowLeft">◀</button>
                 <button class="ctrl-btn" data-key="ArrowDown">▼</button>
                 <button class="ctrl-btn" data-key="ArrowRight">▶</button>
             </div>
-            <div class="control-row">
-                <button class="ctrl-btn wide-btn" id="p2ShootBtn" data-key="Enter">發射 (Enter)</button>
-            </div>
+            <div class="control-row"><button class="ctrl-btn wide-btn" data-key="Enter">發射 (Enter)</button></div>
         </div>
     </div>
-
-    <div class="global-controls">
-        <button class="restart-btn" onclick="returnToMenu()">返回選單</button>
-    </div>
+    <div class="global-controls"><button class="restart-btn" onclick="returnToMenu()">返回選單</button></div>
 
     <script>
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
+
+        // Web Audio API 音效系統初始化
+        let audioCtx = null;
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function playSound(type, param) {
+            if (!audioCtx) return;
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                const now = audioCtx.currentTime;
+
+                if (type === 'normal_shoot') {
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(400, now);
+                    osc.frequency.exponentialRampToValueAtTime(100, now + 0.1);
+                    gain.gain.setValueAtTime(0.06, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                    osc.start(now);
+                    osc.stop(now + 0.1);
+                } else if (type === 'rapid_shoot') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(500, now);
+                    osc.frequency.exponentialRampToValueAtTime(250, now + 0.04);
+                    gain.gain.setValueAtTime(0.015, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+                    osc.start(now);
+                    osc.stop(now + 0.04);
+                } else if (type === 'charge_tier') {
+                    osc.type = 'triangle';
+                    const freq = 200 + (param || 1) * 120;
+                    osc.frequency.setValueAtTime(freq, now);
+                    gain.gain.setValueAtTime(0.08, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+                    osc.start(now);
+                    osc.stop(now + 0.12);
+                } else if (type === 'charge_shoot') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(250, now);
+                    osc.frequency.exponentialRampToValueAtTime(60, now + 0.3);
+                    gain.gain.setValueAtTime(0.12, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                    osc.start(now);
+                    osc.stop(now + 0.3);
+                } else if (type === 'metal_clash') {
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(800, now);
+                    osc.frequency.exponentialRampToValueAtTime(200, now + 0.08);
+                    gain.gain.setValueAtTime(0.1, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+                    osc.start(now);
+                    osc.stop(now + 0.08);
+                } else if (type === 'hit') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(120, now);
+                    osc.frequency.exponentialRampToValueAtTime(40, now + 0.15);
+                    gain.gain.setValueAtTime(0.1, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+                    osc.start(now);
+                    osc.stop(now + 0.15);
+                } else if (type === 'death') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(280, now);
+                    osc.frequency.linearRampToValueAtTime(120, now + 0.2);
+                    osc.frequency.linearRampToValueAtTime(50, now + 0.4);
+                    gain.gain.setValueAtTime(0.15, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+                    osc.start(now);
+                    osc.stop(now + 0.4);
+                } else if (type === 'heal') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(300, now);
+                    osc.frequency.setValueAtTime(500, now + 0.1);
+                    osc.frequency.setValueAtTime(700, now + 0.2);
+                    gain.gain.setValueAtTime(0.08, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                    osc.start(now);
+                    osc.stop(now + 0.3);
+                }
+            } catch (e) {
+                // 忽略音效異常
+            }
+        }
 
         const keys = {};
         const availableModes = [
@@ -388,54 +305,69 @@
             { id: 'charge', name: '蓄力模式' }
         ];
 
-        let p1ModeIndex = 0;
+        let p1ModeIndex = 0; 
         let p2ModeIndex = 0;
-        let gameType = 'local'; // 'local', 'online_normal', 'online_special'
+        let myModeIndex = 0; // 用於線上特殊對戰的個人模式選擇
+        let gameType = 'local'; 
         
-        let peer = null;
+        let peer = null; 
+        let searchPeer = null; 
         let conn = null;
         let isHost = false;
-        let isConnected = false;
-        let ghostRoomTimeout = null;
+        
+        let matchTimerInterval = null;
+        let matchSeconds = 0;
 
-        const NORMAL_LOBBY_ID = "shooter_global_normal_lobby_v1_2026";
-        const SPECIAL_LOBBY_ID = "shooter_global_special_lobby_v1_2026";
-
-        function getActiveLobbyId() {
-            return gameType === 'online_normal' ? NORMAL_LOBBY_ID : SPECIAL_LOBBY_ID;
-        }
-
-        let rematchState = 'none'; // 'none', 'sent', 'received', 'declined_by_me', 'declined_by_other'
-        let healthPack = null;
-        let healthPackInterval = null;
+        let gameRound = 1; let clientRound = 1;
+        let rematchState = 'none';
+        
+        const peerConfig = {
+            config: {
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' }
+                ]
+            }
+        };
 
         function setGameType(type) {
+            initAudio();
             gameType = type;
             document.getElementById("modeLocalBtn").classList.toggle('active', type === 'local');
             document.getElementById("modeOnlineNormalBtn").classList.toggle('active', type === 'online_normal');
             document.getElementById("modeOnlineSpecialBtn").classList.toggle('active', type === 'online_special');
             
-            const onlinePanel = document.getElementById("onlineConfigPanel");
-            const startBtn = document.getElementById("startBtn");
-            const onlineHint = document.getElementById("onlineModeHint");
+            const menuSelectors = document.getElementById("menuSelectorsContainer");
+            const onlineSpecialSelector = document.getElementById("onlineSpecialSelectorContainer");
+            const menuHintText = document.getElementById("menuModeHintText");
 
-            if (type.startsWith('online')) {
-                onlinePanel.style.display = "block";
-                startBtn.style.display = "none";
-                if (type === 'online_normal') {
-                    onlineHint.innerText = "模式：【普通對戰】雙方強制使用標準模式";
-                    p1ModeIndex = 0;
-                    p2ModeIndex = 0;
-                    updateMenuDisplay();
-                } else {
-                    onlineHint.innerText = "模式：【特殊對戰】可自由選擇任一模式";
-                }
+            if (type === 'online_normal') {
+                document.getElementById("onlineConfigPanel").style.display = "block";
+                document.getElementById("startBtn").style.display = "none";
+                document.getElementById("onlineModeHint").innerText = "【普通對戰】雙方強制鎖定標準模式";
+                p1ModeIndex = 0; p2ModeIndex = 0;
+                menuSelectors.style.display = "none"; 
+                onlineSpecialSelector.style.display = "none";
+                menuHintText.style.display = "none";  
+                updateMenuDisplay();
+            } else if (type === 'online_special') {
+                document.getElementById("onlineConfigPanel").style.display = "block";
+                document.getElementById("startBtn").style.display = "none";
+                document.getElementById("onlineModeHint").innerText = "【特殊對戰】選擇您的模式後即可開始匹配";
+                menuSelectors.style.display = "none"; 
+                onlineSpecialSelector.style.display = "flex"; // 顯示黃色單一選擇籃
+                menuHintText.style.display = "block"; 
+                document.getElementById("menuModeHintText").innerText = "提示：點擊上方黃色選單可選擇您想使用的特殊模式";
+                updateSingleModeDisplay();
             } else {
-                onlinePanel.style.display = "none";
-                startBtn.style.display = "inline-block";
-                if (peer) { peer.destroy(); peer = null; }
-                if (ghostRoomTimeout) { clearTimeout(ghostRoomTimeout); ghostRoomTimeout = null; }
-                isConnected = false;
+                document.getElementById("onlineConfigPanel").style.display = "none";
+                document.getElementById("startBtn").style.display = "inline-block";
+                menuSelectors.style.display = "flex"; // 顯示本地雙人選擇籃
+                onlineSpecialSelector.style.display = "none";
+                menuHintText.style.display = "block"; 
+                document.getElementById("menuModeHintText").innerText = "提示：可直接點擊按鈕，或用 A/D 與 ←/→ 切換模式";
+                cancelMatchmaking();
+                cleanupPeers();
             }
             updateMenuLabels();
         }
@@ -443,180 +375,246 @@
         function updateMenuLabels() {
             const p1Title = document.getElementById("p1BoxTitle");
             const p2Title = document.getElementById("p2BoxTitle");
-            const p1Hint = document.getElementById("p1MenuHint");
-            const p2Hint = document.getElementById("p2MenuHint");
 
             if (gameType.startsWith('online')) {
-                if (gameType === 'online_normal') {
-                    p1Hint.innerHTML = "普通對戰已鎖定<strong>標準模式</strong>";
-                    p2Hint.innerHTML = "普通對戰已鎖定<strong>標準模式</strong>";
+                if (conn && conn.open) { 
+                    p1Title.innerHTML = isHost ? "玩家 1 <span style='color:#00ffcc'>(你)</span>" : "玩家 1 <span style='color:#ff5252'>(對手)</span>";
+                    p2Title.innerHTML = !isHost ? "玩家 2 <span style='color:#00ffcc'>(你)</span>" : "玩家 2 <span style='color:#ff5252'>(對手)</span>";
                 } else {
-                    p1Hint.innerHTML = isHost ? "使用 <strong>A / D</strong> 切換您的模式" : "等待對手選擇...";
-                    p2Hint.innerHTML = !isHost ? "使用 <strong>← / →</strong> 切換您的模式" : "等待對手選擇...";
-                }
-
-                if (isHost) {
-                    p1Title.innerHTML = "玩家 1 (藍) <span style='color: #00ffcc;'>(您的模式)</span>";
-                    p2Title.innerHTML = "玩家 2 (紅) <span style='color: #ff5252;'>(對手模式)</span>";
-                } else if (peer && !isHost) {
-                    p1Title.innerHTML = "玩家 1 (藍) <span style='color: #ff5252;'>(對手模式)</span>";
-                    p2Title.innerHTML = "玩家 2 (紅) <span style='color: #00ffcc;'>(您的模式)</span>";
-                } else {
-                    p1Title.innerHTML = "玩家 1 (藍)";
-                    p2Title.innerHTML = "玩家 2 (紅)";
+                    p1Title.innerHTML = "玩家 1 (藍)"; p2Title.innerHTML = "玩家 2 (紅)";
                 }
             } else {
-                p1Title.innerHTML = "玩家 1 (藍)";
-                p2Title.innerHTML = "玩家 2 (紅)";
-                p1Hint.innerHTML = "使用 <strong>A / D</strong> 切換模式";
-                p2Hint.innerHTML = "使用 <strong>← / →</strong> 切換模式";
+                p1Title.innerHTML = "玩家 1 (藍)"; p2Title.innerHTML = "玩家 2 (紅)";
             }
         }
 
+        function updateMenuDisplay() {
+            const p1Btns = document.querySelectorAll("#p1ModeContainer .mode-choice-btn");
+            p1Btns.forEach((btn, idx) => btn.classList.toggle('active', idx === p1ModeIndex));
+
+            const p2Btns = document.querySelectorAll("#p2ModeContainer .mode-choice-btn");
+            p2Btns.forEach((btn, idx) => btn.classList.toggle('active', idx === p2ModeIndex));
+        }
+
+        function updateSingleModeDisplay() {
+            const btns = document.querySelectorAll("#singleModeContainer .mode-choice-btn");
+            btns.forEach((btn, idx) => btn.classList.toggle('active', idx === myModeIndex));
+        }
+
+        function selectModeDirect(playerNum, modeIdx) {
+            initAudio();
+            if (gameStarted || gameType !== 'local') return;
+
+            if (playerNum === 1) {
+                p1ModeIndex = modeIdx;
+            } else {
+                p2ModeIndex = modeIdx;
+            }
+            updateMenuDisplay();
+        }
+
+        function selectSingleMode(modeIdx) {
+            initAudio();
+            if (gameStarted || gameType !== 'online_special') return;
+            myModeIndex = modeIdx;
+            updateSingleModeDisplay();
+
+            if (conn && conn.open) {
+                if (isHost) {
+                    p1ModeIndex = myModeIndex;
+                    conn.send({ type: 'MODE_SYNC', p1Mode: p1ModeIndex });
+                } else {
+                    p2ModeIndex = myModeIndex;
+                    conn.send({ type: 'MODE_SYNC', p2Mode: p2ModeIndex });
+                }
+            }
+        }
+
+        function cleanupPeers() {
+            if (conn) { conn.close(); conn = null; }
+            if (peer) { peer.destroy(); peer = null; }
+            if (searchPeer) { searchPeer.destroy(); searchPeer = null; }
+            isHost = false;
+        }
+
+        function cancelMatchmaking() {
+            clearInterval(matchTimerInterval);
+            cleanupPeers();
+            document.getElementById("matchBtnContainer").style.display = "block";
+            document.getElementById("matchStatusContainer").style.display = "none";
+        }
+
+        function startMatchmakingFromGameOver() {
+            document.getElementById("gameOverMenu").style.display = "none";
+            document.getElementById("startMenu").style.display = "flex";
+            startMatchmaking();
+        }
+
         function startMatchmaking() {
-            if (peer) peer.destroy();
-            if (ghostRoomTimeout) { clearTimeout(ghostRoomTimeout); ghostRoomTimeout = null; }
+            initAudio();
+            cleanupPeers();
+            document.getElementById("matchBtnContainer").style.display = "none";
+            document.getElementById("matchStatusContainer").style.display = "block";
+            document.getElementById("matchStatusText").innerText = "正在尋找對手...";
+            document.getElementById("matchStatusText").style.color = "#00ffcc";
             
-            document.getElementById("connectionStatus").innerText = "狀態：正在尋找對手...";
-            document.getElementById("findMatchBtn").style.display = "none";
+            matchSeconds = 0;
+            document.getElementById("matchStatusSub").innerText = `搜尋中 ${matchSeconds}s`;
+            
+            matchTimerInterval = setInterval(() => {
+                matchSeconds++;
+                document.getElementById("matchStatusSub").innerText = `搜尋中 ${matchSeconds}s`;
+                if (matchSeconds === 5 && !conn) {
+                    document.getElementById("matchStatusText").innerText = "目前無人排隊，您已成為佇列首位";
+                    document.getElementById("matchStatusText").style.color = "#ffeb3b";
+                    document.getElementById("matchStatusSub").innerText = "等待下一位玩家加入...";
+                }
+            }, 1000);
 
-            const lobbyId = getActiveLobbyId();
-            peer = new Peer(lobbyId);
+            tryJoinGlobalQueue();
+        }
 
-            peer.on('open', () => {
-                isHost = true;
-                isConnected = false;
-                document.getElementById("connectionStatus").innerText = "狀態：等待其他玩家加入中 (您是玩家1)...";
-                updateMenuLabels();
+        function tryJoinGlobalQueue() {
+            const queueId = "tw_shooter_queue_2026_" + gameType;
+            searchPeer = new Peer(peerConfig);
+            
+            searchPeer.on('open', (id) => {
+                let tempConn = searchPeer.connect(queueId);
                 
+                tempConn.on('open', () => {
+                    tempConn.on('data', (data) => {
+                        if (data.type === 'MATCH_SUCCESS' && data.roomId) {
+                            searchPeer.destroy();
+                            joinPrivateGameRoom(data.roomId);
+                        }
+                    });
+                });
+
+                tempConn.on('error', () => { fallbackToQueueHost(queueId); });
+            });
+
+            searchPeer.on('error', (err) => {
+                if (err.type === 'peer-unavailable') fallbackToQueueHost(queueId);
+            });
+        }
+
+        function fallbackToQueueHost(queueId) {
+            if (searchPeer) searchPeer.destroy();
+            searchPeer = new Peer(queueId, peerConfig);
+            
+            searchPeer.on('open', () => {});
+
+            searchPeer.on('connection', (tempConn) => {
+                clearInterval(matchTimerInterval);
+                document.getElementById("matchStatusText").innerText = "找到對手！正在建立專屬通道...";
+                document.getElementById("matchStatusSub").innerText = "請稍候...";
+
+                const privateRoomId = "tw_shooter_room_" + Math.floor(Math.random() * 9999999);
+                
+                peer = new Peer(privateRoomId, peerConfig);
+                peer.on('open', () => {
+                    isHost = true;
+                    if (gameType === 'online_special') p1ModeIndex = myModeIndex;
+                    updateMenuLabels();
+                    tempConn.send({ type: 'MATCH_SUCCESS', roomId: privateRoomId });
+                    setTimeout(() => { if (searchPeer) { searchPeer.destroy(); searchPeer = null; } }, 1500);
+                });
+
                 peer.on('connection', (connection) => {
                     conn = connection;
-                    setupConnectionEvents();
-                    isConnected = true;
+                    setupGameConnectionEvents();
                     startHostCountdown();
                 });
             });
 
-            peer.on('error', (err) => {
+            searchPeer.on('error', (err) => {
                 if (err.type === 'unavailable-id') {
-                    peer.destroy();
-                    document.getElementById("connectionStatus").innerText = "狀態：發現現有房間，正在連線 (您是玩家2)...";
-                    
-                    peer = new Peer();
-                    peer.on('open', () => {
-                        isHost = false;
-                        updateMenuLabels();
-                        conn = peer.connect(lobbyId);
-                        setupConnectionEvents();
-                    });
-                } else {
-                    document.getElementById("connectionStatus").innerText = "狀態：連線發生錯誤 (" + err.type + ")";
-                    document.getElementById("findMatchBtn").style.display = "inline-block";
+                    setTimeout(tryJoinGlobalQueue, 1000);
                 }
+            });
+        }
+
+        function joinPrivateGameRoom(roomId) {
+            peer = new Peer(peerConfig);
+            peer.on('open', () => {
+                isHost = false;
+                if (gameType === 'online_special') p2ModeIndex = myModeIndex;
+                updateMenuLabels();
+                conn = peer.connect(roomId);
+                clearInterval(matchTimerInterval);
+                setupGameConnectionEvents();
             });
         }
 
         function startHostCountdown() {
             let count = 3;
+            document.getElementById("matchStatusText").innerText = `連線成功！${count} 秒後開始...`;
+            document.getElementById("matchStatusSub").innerText = "準備戰鬥";
+            
+            if(gameType === 'online_special') {
+                document.getElementById("menuModeHintText").innerText = "已成功配對！即將展開對戰";
+            }
+
             const timer = setInterval(() => {
-                if (count >= 0) {
-                    document.getElementById("connectionStatus").innerHTML = `<span style="font-size: 18px; color: #ffeb3b;">配對成功！ ${count} 秒後開始遊戲...</span>`;
-                    if (conn && conn.open) {
-                        conn.send({
-                            type: 'COUNTDOWN',
-                            count: count,
-                            p1Mode: p1ModeIndex,
-                            p2Mode: p2ModeIndex
-                        });
-                    }
+                if (count > 0) {
+                    document.getElementById("matchStatusText").innerText = `連線成功！${count} 秒後開始...`;
+                    if (conn && conn.open) conn.send({ type: 'COUNTDOWN', count: count, p1Mode: p1ModeIndex, p2Mode: p2ModeIndex });
                     count--;
                 } else {
                     clearInterval(timer);
-                    if (conn && conn.open) {
-                        conn.send({
-                            type: 'START',
-                            p1Mode: p1ModeIndex,
-                            p2Mode: p2ModeIndex
-                        });
-                    }
+                    if (conn && conn.open) conn.send({ type: 'START', p1Mode: p1ModeIndex, p2Mode: p2ModeIndex });
                     startGame();
                 }
             }, 1000);
         }
 
-        function setupConnectionEvents() {
-            if (ghostRoomTimeout) { clearTimeout(ghostRoomTimeout); ghostRoomTimeout = null; }
-
+        function setupGameConnectionEvents() {
             conn.on('open', () => {
-                isConnected = true;
-                updateMenuLabels();
-                document.getElementById("connectionStatus").innerHTML = `<span style="font-size: 16px; color: #4caf50;">狀態：已成功連線，等待開始...</span>`;
-                
-                if (isHost) {
-                    conn.send({ type: 'MODE_SYNC', p1Mode: p1ModeIndex, p2Mode: p2ModeIndex });
+                if (!isHost) {
+                    document.getElementById("matchStatusText").innerText = `通道連接成功，等待主機開始...`;
+                    document.getElementById("matchStatusSub").innerText = "";
+                    if (gameType === 'online_special') {
+                        p2ModeIndex = myModeIndex;
+                        conn.send({ type: 'MODE_SYNC', p2Mode: p2ModeIndex });
+                    }
                 } else {
-                    conn.send({ type: 'MODE_SYNC', p2Mode: p2ModeIndex });
-                    
-                    ghostRoomTimeout = setTimeout(() => {
-                        if (!gameStarted) {
-                            document.getElementById("connectionStatus").innerHTML = `<span style="font-size: 13px; color: #ff5252;">狀態：對方無回應（幽靈房間），請重新點擊匹配</span>`;
-                            document.getElementById("findMatchBtn").style.display = "inline-block";
-                            if (conn) conn.close();
-                            if (peer) peer.destroy();
-                        }
-                    }, 4000);
+                    if (gameType === 'online_special') {
+                        p1ModeIndex = myModeIndex;
+                        conn.send({ type: 'MODE_SYNC', p1Mode: p1ModeIndex, p2Mode: p2ModeIndex });
+                    }
                 }
             });
 
             conn.on('data', (data) => {
-                if (ghostRoomTimeout) {
-                    clearTimeout(ghostRoomTimeout);
-                    ghostRoomTimeout = null;
-                }
-
                 if (data.type === 'MODE_SYNC') {
                     if (gameType === 'online_special') {
-                        if (data.p1Mode !== undefined) p1ModeIndex = data.p1Mode;
-                        if (data.p2Mode !== undefined) p2ModeIndex = data.p2Mode;
-                    } else {
-                        p1ModeIndex = 0;
-                        p2ModeIndex = 0;
+                        if (isHost && data.p2Mode !== undefined) p2ModeIndex = data.p2Mode;
+                        if (!isHost && data.p1Mode !== undefined) p1ModeIndex = data.p1Mode;
                     }
-                    updateMenuDisplay();
                 }
 
                 if (data.type === 'REMATCH_REQ') {
-                    rematchState = 'received';
-                    updateGameOverUI();
+                    rematchState = 'received'; updateGameOverUI();
                 } else if (data.type === 'REMATCH_ACCEPT') {
-                    triggerRematch();
+                    triggerRematch(); 
                 } else if (data.type === 'REMATCH_DECLINE') {
-                    rematchState = 'declined_by_other';
-                    updateGameOverUI();
+                    rematchState = 'declined_by_other'; updateGameOverUI();
                 }
 
                 if (isHost) {
-                    if (data.type === 'KEYS') {
-                        clientKeys = data.keys;
-                    }
+                    if (data.type === 'KEYS') clientKeys = data.keys;
                 } else {
                     if (data.type === 'COUNTDOWN') {
-                        if (gameType === 'online_special') {
-                            p1ModeIndex = data.p1Mode;
-                            p2ModeIndex = data.p2Mode;
-                        } else {
-                            p1ModeIndex = 0;
-                            p2ModeIndex = 0;
+                        if (gameType === 'online_special') { 
+                            p1ModeIndex = data.p1Mode; 
+                            p2ModeIndex = myModeIndex; 
+                            if (conn && conn.open) conn.send({ type: 'MODE_SYNC', p2Mode: p2ModeIndex });
                         }
-                        updateMenuDisplay();
-                        document.getElementById("connectionStatus").innerHTML = `<span style="font-size: 18px; color: #ffeb3b;">配對成功！ ${data.count} 秒後開始遊戲...</span>`;
+                        document.getElementById("matchStatusText").innerText = `準備完畢！${data.count} 秒後開始...`;
                     } else if (data.type === 'START') {
-                        if (gameType === 'online_special') {
-                            p1ModeIndex = data.p1Mode;
-                            p2ModeIndex = data.p2Mode;
-                        } else {
-                            p1ModeIndex = 0;
-                            p2ModeIndex = 0;
+                        if (gameType === 'online_special') { 
+                            p1ModeIndex = data.p1Mode; 
+                            p2ModeIndex = myModeIndex; 
                         }
                         startOnlineGameClient();
                     } else if (data.type === 'STATE') {
@@ -626,355 +624,188 @@
             });
 
             conn.on('close', () => {
-                alert("對方已斷開連線！");
-                returnToMenu();
+                if (gameStarted || rematchState !== 'none') {
+                    alert("對方已離開房間！");
+                    returnToMenu();
+                }
             });
         }
 
         function changeMode(playerNum, direction) {
-            if (gameStarted) return;
-            if (gameType === 'online_normal') return;
-            
-            if (gameType === 'online_special') {
-                if (isHost && playerNum !== 1) return;
-                if (!isHost && playerNum !== 2) return;
-            }
+            initAudio();
+            if (gameStarted || gameType !== 'local') return;
 
             if (playerNum === 1) {
                 p1ModeIndex = (p1ModeIndex + direction + availableModes.length) % availableModes.length;
-                updateMenuDisplay();
-                if (gameType === 'online_special' && isHost && conn && conn.open) {
-                    conn.send({ type: 'MODE_SYNC', p1Mode: p1ModeIndex });
-                }
             } else {
                 p2ModeIndex = (p2ModeIndex + direction + availableModes.length) % availableModes.length;
-                updateMenuDisplay();
-                if (gameType === 'online_special' && !isHost && conn && conn.open) {
-                    conn.send({ type: 'MODE_SYNC', p2Mode: p2ModeIndex });
-                }
             }
+            updateMenuDisplay();
+        }
+
+        function changeSingleMode(direction) {
+            initAudio();
+            if (gameStarted || gameType !== 'online_special') return;
+            myModeIndex = (myModeIndex + direction + availableModes.length) % availableModes.length;
+            selectSingleMode(myModeIndex);
         }
 
         window.addEventListener("keydown", (e) => {
-            if (["Space", "Enter", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "KeyS", "KeyW", "KeyA", "KeyD"].includes(e.code)) {
-                e.preventDefault();
-            }
-
+            initAudio();
+            if (["Space", "Enter", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "KeyS", "KeyW", "KeyA", "KeyD"].includes(e.code)) e.preventDefault();
             if (!gameStarted) {
-                if (gameType === 'online_special') {
-                    if (isHost) {
-                        if (e.code === "KeyA") changeMode(1, -1);
-                        else if (e.code === "KeyD") changeMode(1, 1);
-                    } else {
-                        if (e.code === "ArrowLeft") changeMode(2, -1);
-                        else if (e.code === "ArrowRight") changeMode(2, 1);
-                    }
-                } else if (gameType === 'local') {
-                    if (e.code === "KeyA") changeMode(1, -1);
-                    else if (e.code === "KeyD") changeMode(1, 1);
-                    else if (e.code === "ArrowLeft") changeMode(2, -1);
-                    else if (e.code === "ArrowRight") changeMode(2, 1);
+                if (gameType === 'local') {
+                    if (e.code === "KeyA") changeMode(1, -1); else if (e.code === "KeyD") changeMode(1, 1);
+                    else if (e.code === "ArrowLeft") changeMode(2, -1); else if (e.code === "ArrowRight") changeMode(2, 1);
+                } else if (gameType === 'online_special') {
+                    if (e.code === "KeyA" || e.code === "ArrowLeft") changeSingleMode(-1);
+                    else if (e.code === "KeyD" || e.code === "ArrowRight") changeSingleMode(1);
                 }
             }
-
             keys[e.code] = true;
         });
-
         window.addEventListener("keyup", (e) => keys[e.code] = false);
-
-        const mobileControlsContainer = document.getElementById('mobileControlsContainer');
-
-        function handleTouchControls(e) {
-            e.preventDefault();
-            const buttons = document.querySelectorAll('.ctrl-btn');
-            const pressedCodes = new Set();
-
-            for (let i = 0; i < e.touches.length; i++) {
-                let t = e.touches[i];
-                buttons.forEach(btn => {
-                    let rect = btn.getBoundingClientRect();
-                    if (t.clientX >= rect.left && t.clientX <= rect.right &&
-                        t.clientY >= rect.top && t.clientY <= rect.bottom) {
-                        pressedCodes.add(btn.getAttribute('data-key'));
-                    }
-                });
-            }
-
-            buttons.forEach(btn => {
-                let code = btn.getAttribute('data-key');
-                let isPressed = pressedCodes.has(code);
-
-                if (isPressed && !keys[code] && !gameStarted) {
-                    if (gameType === 'online_special') {
-                        if (isHost && code === 'KeyA') changeMode(1, -1);
-                        else if (isHost && code === 'KeyD') changeMode(1, 1);
-                        else if (!isHost && code === 'ArrowLeft') changeMode(2, -1);
-                        else if (!isHost && code === 'ArrowRight') changeMode(2, 1);
-                    } else if (gameType === 'local') {
-                        if (code === 'KeyA') changeMode(1, -1);
-                        else if (code === 'KeyD') changeMode(1, 1);
-                        else if (code === 'ArrowLeft') changeMode(2, -1);
-                        else if (code === 'ArrowRight') changeMode(2, 1);
-                    }
-                }
-
-                keys[code] = isPressed;
-                if (isPressed) {
-                    btn.classList.add('active');
-                } else {
-                    btn.classList.remove('active');
-                }
-            });
-        }
-
-        ['touchstart', 'touchmove', 'touchend', 'touchcancel'].forEach(evtType => {
-            mobileControlsContainer.addEventListener(evtType, handleTouchControls, { passive: false });
-        });
 
         document.querySelectorAll('.ctrl-btn').forEach(btn => {
             const code = btn.getAttribute('data-key');
-            btn.addEventListener('mousedown', (e) => {
-                e.preventDefault();
-                keys[code] = true;
-                btn.classList.add('active');
+            const handlePress = (e) => {
+                initAudio();
+                if (e.cancelable) e.preventDefault();
+                keys[code] = true; btn.classList.add('active');
                 if (!gameStarted) {
-                    if (gameType === 'online_special') {
-                        if (isHost && code === 'KeyA') changeMode(1, -1);
-                        else if (isHost && code === 'KeyD') changeMode(1, 1);
-                        else if (!isHost && code === 'ArrowLeft') changeMode(2, -1);
-                        else if (!isHost && code === 'ArrowRight') changeMode(2, 1);
-                    } else if (gameType === 'local') {
-                        if (code === 'KeyA') changeMode(1, -1);
-                        else if (code === 'KeyD') changeMode(1, 1);
-                        else if (code === 'ArrowLeft') changeMode(2, -1);
-                        else if (code === 'ArrowRight') changeMode(2, 1);
+                    if (gameType === 'local') {
+                        if (code === "KeyA") changeMode(1, -1); else if (code === "KeyD") changeMode(1, 1);
+                        else if (code === "ArrowLeft") changeMode(2, -1); else if (code === "ArrowRight") changeMode(2, 1);
+                    } else if (gameType === 'online_special') {
+                        if (code === "KeyA" || code === "ArrowLeft") changeSingleMode(-1);
+                        else if (code === "KeyD" || code === "ArrowRight") changeSingleMode(1);
                     }
                 }
-            });
-            btn.addEventListener('mouseup', (e) => { e.preventDefault(); keys[code] = false; btn.classList.remove('active'); });
-            btn.addEventListener('mouseleave', (e) => { e.preventDefault(); keys[code] = false; btn.classList.remove('active'); });
+            };
+            const handleRelease = (e) => { if (e.cancelable) e.preventDefault(); keys[code] = false; btn.classList.remove('active'); };
+            btn.addEventListener('touchstart', handlePress, { passive: false });
+            btn.addEventListener('touchend', handleRelease, { passive: false });
+            btn.addEventListener('mousedown', handlePress);
+            btn.addEventListener('mouseup', handleRelease);
+            btn.addEventListener('mouseleave', handleRelease);
         });
 
-        function updateMenuDisplay() {
-            document.getElementById("p1MenuMode").innerText = availableModes[p1ModeIndex].name;
-            document.getElementById("p2MenuMode").innerText = availableModes[p2ModeIndex].name;
-        }
-
-        let gameStarted = false;
-        let gameOver = false;
-        let winnerMessage = "";
-        let bullets = [];
-        let particles = [];
-        let clientKeys = {};
-        let syncGameState = null;
+        let gameStarted = false; let gameOver = false; let winnerMessage = "";
+        let bullets = []; let particles = []; let clientKeys = {}; let syncGameState = null;
+        let healthPack = null; let healthPackInterval = null;
 
         class Particle {
             constructor(x, y, color) {
-                this.x = x;
-                this.y = y;
-                this.color = color;
-                const angle = Math.random() * Math.PI * 2;
-                const speed = Math.random() * 4 + 1;
-                this.vx = Math.cos(angle) * speed;
-                this.vy = Math.sin(angle) * speed;
-                this.alpha = 1;
-                this.decay = Math.random() * 0.03 + 0.02;
+                this.x = x; this.y = y; this.color = color;
+                const angle = Math.random() * Math.PI * 2; const speed = Math.random() * 4 + 1;
+                this.vx = Math.cos(angle) * speed; this.vy = Math.sin(angle) * speed;
+                this.alpha = 1; this.decay = Math.random() * 0.03 + 0.02;
             }
-            update() {
-                this.x += this.vx;
-                this.y += this.vy;
-                this.alpha -= this.decay;
-            }
-            draw() {
-                ctx.save();
-                ctx.globalAlpha = Math.max(this.alpha, 0);
-                ctx.fillStyle = this.color;
-                ctx.fillRect(this.x, this.y, 4, 4);
-                ctx.restore();
-            }
+            update() { this.x += this.vx; this.y += this.vy; this.alpha -= this.decay; }
+            draw() { ctx.save(); ctx.globalAlpha = Math.max(this.alpha, 0); ctx.fillStyle = this.color; ctx.fillRect(this.x, this.y, 4, 4); ctx.restore(); }
         }
 
         class Player {
             constructor(x, y, color, controls, shootKeys, type, speedMultiplier = 1, id = 1) {
-                this.x = x;
-                this.y = y;
-                this.width = 36;
-                this.height = 36;
-                this.color = color;
-                this.hp = 100;
-                this.controls = controls;
-                this.shootKeys = Array.isArray(shootKeys) ? shootKeys : [shootKeys];
-                this.type = type;
-                this.id = id;
-                this.facingRight = true;
-                this.cooldown = 0;
-                this.chargeLevel = 0;
-
-                this.baseSpeedMultiplier = speedMultiplier;
-                this.vx = 0;
-                this.vy = 0;
-                this.acceleration = 0.6 * speedMultiplier;
-                this.friction = 0.82;
-                this.maxSpeed = 4.5 * speedMultiplier;
+                this.x = x; this.y = y; this.width = 36; this.height = 36; this.color = color;
+                this.hp = 100; this.controls = controls; this.shootKeys = Array.isArray(shootKeys) ? shootKeys : [shootKeys];
+                this.type = type; this.id = id; this.facingRight = true; this.cooldown = 0; this.chargeLevel = 0;
+                this.lastPlayedChargeTier = 0;
+                this.baseSpeedMultiplier = speedMultiplier; this.vx = 0; this.vy = 0;
+                this.acceleration = 0.6 * speedMultiplier; this.friction = 0.82; this.maxSpeed = 4.5 * speedMultiplier;
             }
-
             draw() {
-                ctx.save();
-                ctx.shadowColor = this.color;
-                ctx.shadowBlur = 10;
-                ctx.fillStyle = this.color;
-                ctx.fillRect(this.x, this.y, this.width, this.height);
-                
-                ctx.fillStyle = "#ffffff";
-                const barrelX = this.facingRight ? this.x + this.width : this.x - 12;
-                ctx.fillRect(barrelX, this.y + this.height / 2 - 4, 12, 8);
-                
+                ctx.save(); ctx.shadowColor = this.color; ctx.shadowBlur = 10; ctx.fillStyle = this.color; ctx.fillRect(this.x, this.y, this.width, this.height);
+                ctx.fillStyle = "#ffffff"; const barrelX = this.facingRight ? this.x + this.width : this.x - 12; ctx.fillRect(barrelX, this.y + this.height / 2 - 4, 12, 8);
                 if (this.type === "charge" && this.chargeLevel > 0) {
-                    const previewW = 14 + this.chargeLevel * 0.6;
-                    const previewH = 8 + this.chargeLevel * 0.4;
+                    const previewW = 14 + this.chargeLevel * 0.6; const previewH = 8 + this.chargeLevel * 0.4;
                     const previewX = this.facingRight ? this.x + this.width + 12 : this.x - 12 - previewW;
-                    ctx.fillStyle = this.color;
-                    ctx.shadowBlur = 15;
-                    ctx.fillRect(previewX, this.y + this.height / 2 - previewH / 2, previewW, previewH);
+                    ctx.fillStyle = this.color; ctx.shadowBlur = 15; ctx.fillRect(previewX, this.y + this.height / 2 - previewH / 2, previewW, previewH);
                 }
                 ctx.restore();
-                
-                ctx.fillStyle = "rgba(255,255,255,0.2)";
-                ctx.fillRect(this.x - 4, this.y - 18, this.width + 8, 8);
-                
-                ctx.fillStyle = "red";
-                ctx.fillRect(this.x - 4, this.y - 18, this.width + 8, 8);
-                ctx.fillStyle = "#00ffcc";
-                ctx.fillRect(this.x - 4, this.y - 18, (this.width + 8) * Math.max(this.hp / 100, 0), 8);
-
-                let isYou = false;
-                if (gameType.startsWith('online')) {
-                    if (isHost && this === player1) isYou = true;
-                    if (!isHost && this === player2) isYou = true;
-                }
-
-                ctx.fillStyle = isYou ? "#ffeb3b" : "#fff";
-                ctx.font = isYou ? "bold 11px 'Segoe UI'" : "10px 'Segoe UI'";
+                ctx.fillStyle = "rgba(255,255,255,0.2)"; ctx.fillRect(this.x - 4, this.y - 18, this.width + 8, 8);
+                ctx.fillStyle = "red"; ctx.fillRect(this.x - 4, this.y - 18, this.width + 8, 8);
+                ctx.fillStyle = "#00ffcc"; ctx.fillRect(this.x - 4, this.y - 18, (this.width + 8) * Math.max(this.hp / 100, 0), 8);
+                let isYou = false; if (gameType.startsWith('online')) { if (isHost && this.id === 1) isYou = true; if (!isHost && this.id === 2) isYou = true; }
+                ctx.fillStyle = isYou ? "#ffeb3b" : "#fff"; ctx.font = isYou ? "bold 11px 'Segoe UI'" : "10px 'Segoe UI'";
                 let labelText = Math.max(this.hp, 0).toFixed(this.hp % 1 !== 0 ? 1 : 0) + " HP";
-                if (isYou) {
-                    labelText = "(這是你) " + labelText;
-                }
-                ctx.fillText(labelText, this.x - 12, this.y - 23);
+                if (isYou) labelText = "(這是你) " + labelText; ctx.fillText(labelText, this.x - 12, this.y - 23);
             }
-
             update(opponent, inputKeys) {
-                if (gameOver || !gameStarted) return;
-
-                if (opponent) {
-                    this.facingRight = opponent.x >= this.x;
-                }
-
-                let currentSpeedMult = this.baseSpeedMultiplier;
-                let chargeRate = 1.5;
-
+                if (opponent) this.facingRight = opponent.x >= this.x;
+                let currentSpeedMult = this.baseSpeedMultiplier; let chargeRate = 1.5;
                 if (this.type === "charge") {
-                    const playerArea = this.width * this.height;
-                    const previewW = 14 + this.chargeLevel * 0.6;
-                    const previewH = 8 + this.chargeLevel * 0.4;
-                    const bulletArea = previewW * previewH;
+                    const bW = 14 + this.chargeLevel * 0.6; 
+                    const bH = 8 + this.chargeLevel * 0.4;
+                    const standardArea = 18 * 8;
+                    const currentArea = bW * bH;
+                    let calculatedDamage = 5 * (currentArea / standardArea);
+                    if (calculatedDamage > 90) calculatedDamage = 90;
 
-                    if (bulletArea > playerArea * 4) {
-                        chargeRate = 1.5 / 4;       
-                        currentSpeedMult = 1.5;     
-                    } else {
-                        currentSpeedMult = 1.0;     
+                    if (calculatedDamage >= 75) { 
+                        chargeRate = 1.5 / 4; 
+                        currentSpeedMult = 1.5; 
+                    } else { 
+                        currentSpeedMult = 1.0; 
                     }
                 }
-
-                this.acceleration = 0.6 * currentSpeedMult;
-                this.maxSpeed = 4.5 * currentSpeedMult;
-
+                this.acceleration = 0.6 * currentSpeedMult; this.maxSpeed = 4.5 * currentSpeedMult;
                 if (inputKeys[this.controls.up]) this.vy -= this.acceleration;
                 if (inputKeys[this.controls.down]) this.vy += this.acceleration;
                 if (inputKeys[this.controls.left]) this.vx -= this.acceleration;
                 if (inputKeys[this.controls.right]) this.vx += this.acceleration;
-                
                 let isShootPressed = this.shootKeys.some(k => inputKeys[k]);
+                this.vx *= this.friction; this.vy *= this.friction;
+                this.vx = Math.max(Math.min(this.vx, this.maxSpeed), -this.maxSpeed); this.vy = Math.max(Math.min(this.vy, this.maxSpeed), -this.maxSpeed);
+                this.x += this.vx; this.y += this.vy;
+                if (this.x < 0) { this.x = 0; this.vx = 0; } if (this.x > canvas.width - this.width) { this.x = canvas.width - this.width; this.vx = 0; }
+                if (this.y < 0) { this.y = 0; this.vy = 0; } if (this.y > canvas.height - this.height) { this.y = canvas.height - this.height; this.vy = 0; }
+                if (this.cooldown > 0) this.cooldown = Math.max(0, this.cooldown - 1);
 
-                this.vx *= this.friction;
-                this.vy *= this.friction;
-
-                this.vx = Math.max(Math.min(this.vx, this.maxSpeed), -this.maxSpeed);
-                this.vy = Math.max(Math.min(this.vy, this.maxSpeed), -this.maxSpeed);
-
-                this.x += this.vx;
-                this.y += this.vy;
-
-                if (this.x < 0) { this.x = 0; this.vx = 0; }
-                if (this.x > canvas.width - this.width) { this.x = canvas.width - this.width; this.vx = 0; }
-                if (this.y < 0) { this.y = 0; this.vy = 0; }
-                if (this.y > canvas.height - this.height) { this.y = canvas.height - this.height; this.vy = 0; }
-
-                if (this.cooldown > 0) this.cooldown--;
-
-                if (this.type === "normal") {
-                    if (isShootPressed && this.cooldown === 0) {
-                        const bulletSpeed = this.facingRight ? 12 : -12;
-                        const bWidth = 18;
-                        const bulletX = this.facingRight ? this.x + this.width + 12 : this.x - 12 - bWidth;
-                        bullets.push({
-                            x: bulletX,
-                            y: this.y + this.height / 2 - 4,
-                            width: bWidth,
-                            height: 8,
-                            speed: bulletSpeed,
-                            color: this.color,
-                            ownerColor: this.color,
-                            owner: this.id,
-                            damage: 5
-                        });
-                        this.cooldown = 45; 
-                    }
-                } else if (this.type === "rapid") {
-                    if (isShootPressed && this.cooldown === 0) {
-                        const bulletSpeed = this.facingRight ? 14 : -14;
-                        const bWidth = 12;
-                        const bulletX = this.facingRight ? this.x + this.width + 12 : this.x - 12 - bWidth;
-                        bullets.push({
-                            x: bulletX,
-                            y: this.y + this.height / 2 - 3,
-                            width: bWidth,
-                            height: 6,
-                            speed: bulletSpeed,
-                            color: this.color,
-                            ownerColor: this.color,
-                            owner: this.id,
-                            damage: 1
-                        });
-                        this.cooldown = 1; 
-                    }
+                if (this.type === "normal" && isShootPressed && this.cooldown === 0) {
+                    const bW = 18; const bX = this.facingRight ? this.x + this.width + 12 : this.x - 12 - bW;
+                    bullets.push({ x: bX, y: this.y + this.height / 2 - 4, width: bW, height: 8, speed: this.facingRight ? 12 : -12, color: this.color, owner: this.id, damage: 5 });
+                    playSound('normal_shoot');
+                    this.cooldown = 45; 
+                } else if (this.type === "rapid" && isShootPressed && this.cooldown === 0) {
+                    const bW = 12; const bX = this.facingRight ? this.x + this.width + 12 : this.x - 12 - bW;
+                    bullets.push({ x: bX, y: this.y + this.height / 2 - 3, width: bW, height: 6, speed: this.facingRight ? 14 : -14, color: this.color, owner: this.id, damage: 1 });
+                    playSound('rapid_shoot');
+                    this.cooldown = 1; 
                 } else if (this.type === "charge") {
-                    if (isShootPressed) {
+                    if (isShootPressed) { 
                         if (this.cooldown === 0) {
-                            this.chargeLevel += chargeRate; 
+                            this.chargeLevel += chargeRate;
+                            let tier = Math.floor(this.chargeLevel / 20);
+                            if (tier > this.lastPlayedChargeTier) {
+                                playSound('charge_tier', Math.min(tier, 5));
+                                this.lastPlayedChargeTier = tier;
+                            }
                         }
-                    } else {
+                    } else { 
+                        this.lastPlayedChargeTier = 0;
                         if (this.chargeLevel > 0 && this.cooldown === 0) {
-                            const bWidth = 14 + this.chargeLevel * 0.6;
-                            const bHeight = 8 + this.chargeLevel * 0.4;
-                            const bulletSpeed = this.facingRight ? 11 : -11;
-                            const bulletX = this.facingRight ? this.x + this.width + 12 : this.x - 12 - bWidth;
-                            const damage = 5 + this.chargeLevel * 1.2;
+                            const bW = 14 + this.chargeLevel * 0.6; 
+                            const bH = 8 + this.chargeLevel * 0.4;
+                            const bX = this.facingRight ? this.x + this.width + 12 : this.x - 12 - bW;
+                            
+                            const standardArea = 18 * 8;
+                            const currentArea = bW * bH;
+                            let calculatedDamage = 5 * (currentArea / standardArea);
+                            if (calculatedDamage > 90) calculatedDamage = 90;
 
-                            bullets.push({
-                                x: bulletX,
-                                y: this.y + this.height / 2 - bHeight / 2,
-                                width: bWidth,
-                                height: bHeight,
-                                speed: bulletSpeed,
-                                color: this.color,
-                                ownerColor: this.color,
-                                owner: this.id,
-                                damage: damage
+                            bullets.push({ 
+                                x: bX, 
+                                y: this.y + this.height / 2 - bH / 2, 
+                                width: bW, 
+                                height: bH, 
+                                speed: this.facingRight ? 11 : -11, 
+                                color: this.color, 
+                                owner: this.id, 
+                                damage: calculatedDamage 
                             });
-
-                            this.cooldown = 30; 
-                            this.chargeLevel = 0; 
+                            playSound('charge_shoot');
+                            this.cooldown = 30; this.chargeLevel = 0; 
                         }
                     }
                 }
@@ -983,450 +814,257 @@
 
         let player1, player2;
 
-        function startGame() {
-            if (gameType === 'online_normal') {
-                p1ModeIndex = 0;
-                p2ModeIndex = 0;
+        function startGame() { 
+            initAudio(); 
+            if (gameType === 'online_special') {
+                if (isHost) p1ModeIndex = myModeIndex;
+                else p2ModeIndex = myModeIndex;
             }
-            initGameInstance(p1ModeIndex, p2ModeIndex);
+            initGameInstance(p1ModeIndex, p2ModeIndex); 
         }
-
-        function startOnlineGameClient() {
-            if (gameType === 'online_normal') {
-                p1ModeIndex = 0;
-                p2ModeIndex = 0;
+        
+        function startOnlineGameClient() { 
+            initAudio(); 
+            if (gameType === 'online_special') {
+                p2ModeIndex = myModeIndex;
             }
-            initGameInstance(p1ModeIndex, p2ModeIndex);
+            initGameInstance(p1ModeIndex, p2ModeIndex); 
         }
 
         function initGameInstance(p1Idx, p2Idx) {
-            gameStarted = true;
-            document.getElementById("startMenu").style.display = "none";
+            gameStarted = true; 
+            document.getElementById("startMenu").style.display = "none"; 
             document.getElementById("gameOverMenu").style.display = "none";
-
-            const p1Chosen = availableModes[p1Idx].id;
+            const p1Chosen = availableModes[p1Idx].id; 
             const p2Chosen = availableModes[p2Idx].id;
-
-            let p1Speed = p1Chosen === 'rapid' ? 2.0 : 1.0;
-            let p2Speed = p2Chosen === 'rapid' ? 2.0 : 1.0;
-
-            let p1ShootKeys = ["Space"];
-            let p2ShootKeys = ["Enter"];
-
-            player1 = new Player(100, 220, "#4facf7", {up: "KeyW", down: "KeyS", left: "KeyA", right: "KeyD"}, p1ShootKeys, p1Chosen, p1Speed, 1);
-            player2 = new Player(660, 220, "#ff6b6b", {up: "ArrowUp", down: "ArrowDown", left: "ArrowLeft", right: "ArrowRight"}, p2ShootKeys, p2Chosen, p2Speed, 2);
-
-            document.getElementById("p1Title").innerText = `玩家 1 (${availableModes[p1Idx].name})`;
+            player1 = new Player(100, 220, "#4facf7", {up: "KeyW", down: "KeyS", left: "KeyA", right: "KeyD"}, ["Space"], p1Chosen, p1Chosen === 'rapid' ? 2.0 : 1.0, 1);
+            player2 = new Player(660, 220, "#ff6b6b", {up: "ArrowUp", down: "ArrowDown", left: "ArrowLeft", right: "ArrowRight"}, ["Enter"], p2Chosen, p2Chosen === 'rapid' ? 2.0 : 1.0, 2);
+            document.getElementById("p1Title").innerText = `玩家 1 (${availableModes[p1Idx].name})`; 
             document.getElementById("p2Title").innerText = `玩家 2 (${availableModes[p2Idx].name})`;
-
-            if (gameType.startsWith('online')) {
-                if (isHost) {
-                    document.getElementById("instructionText").innerHTML = `
-                        <span class="highlight-p1">您是玩家 1 (藍)</span>: 使用 <strong>W, A, S, D</strong> 移動 | <strong>空白鍵</strong> 射擊 (房主)
-                    `;
-                } else {
-                    document.getElementById("instructionText").innerHTML = `
-                        <span class="highlight-p2">您是玩家 2 (紅)</span>: 使用 <strong>方向鍵</strong> 移動 | <strong>Enter</strong> 射擊 (加入者)
-                    `;
-                }
-            } else {
-                document.getElementById("instructionText").innerHTML = `
-                    <span class="highlight-p1">玩家1</span>: W,A,S,D 移動 | 空白鍵發射 &nbsp;|&nbsp; <span class="highlight-p2">玩家2</span>: 方向鍵移動 | Enter 發射
-                `;
-            }
-
-            bullets = [];
-            particles = [];
-            healthPack = null;
-            gameOver = false;
-            winnerMessage = "";
-            rematchState = 'none';
-
+            bullets = []; particles = []; healthPack = null; gameOver = false; winnerMessage = ""; rematchState = 'none'; syncGameState = null;
             if (healthPackInterval) clearInterval(healthPackInterval);
             if (gameType === 'local' || (gameType.startsWith('online') && isHost)) {
-                healthPackInterval = setInterval(() => {
-                    if (gameStarted && !gameOver && !healthPack) {
-                        healthPack = {
-                            x: Math.random() * (canvas.width - 100) + 50,
-                            y: Math.random() * (canvas.height - 100) + 50
-                        };
-                    }
-                }, 10000);
+                healthPackInterval = setInterval(() => { if (gameStarted && !gameOver && !healthPack) healthPack = { x: Math.random() * (canvas.width - 100) + 50, y: Math.random() * (canvas.height - 100) + 50 }; }, 10000);
             }
         }
 
         function triggerRematch() {
-            if (player1 && player2) {
-                player1.hp = 100;
-                player1.x = 100;
-                player1.y = 220;
-                player1.vx = 0;
-                player1.vy = 0;
-                player1.chargeLevel = 0;
-
-                player2.hp = 100;
-                player2.x = 660;
-                player2.y = 220;
-                player2.vx = 0;
-                player2.vy = 0;
-                player2.chargeLevel = 0;
-
-                bullets = [];
-                particles = [];
-                healthPack = null;
-                gameOver = false;
-                winnerMessage = "";
-                rematchState = 'none';
-
-                if (healthPackInterval) clearInterval(healthPackInterval);
-                if (gameType === 'local' || (gameType.startsWith('online') && isHost)) {
-                    healthPackInterval = setInterval(() => {
-                        if (gameStarted && !gameOver && !healthPack) {
-                            healthPack = {
-                                x: Math.random() * (canvas.width - 100) + 50,
-                                y: Math.random() * (canvas.height - 100) + 50
-                            };
-                        }
-                    }, 10000);
-                }
-                
-                document.getElementById("gameOverMenu").style.display = "none";
-            }
-        }
-
-        function handleRematchClick() {
-            if (gameType === 'local') {
-                triggerRematch();
-            } else {
-                if (rematchState === 'none' || rematchState === 'declined_by_other' || rematchState === 'declined_by_me') {
-                    rematchState = 'sent';
-                    updateGameOverUI();
-                    if (conn && conn.open) {
-                        conn.send({ type: 'REMATCH_REQ' });
-                    }
-                } else if (rematchState === 'received') {
-                    if (conn && conn.open) {
-                        conn.send({ type: 'REMATCH_ACCEPT' });
-                    }
-                    triggerRematch();
-                }
-            }
-        }
-
-        function handleDeclineClick() {
-            rematchState = 'declined_by_me';
-            updateGameOverUI();
-            if (conn && conn.open) {
-                conn.send({ type: 'REMATCH_DECLINE' });
-            }
-        }
-
-        function handleCancelClick() {
-            rematchState = 'none';
-            updateGameOverUI();
-            if (conn && conn.open) {
-                conn.send({ type: 'REMATCH_DECLINE' });
-            }
-        }
-
-        function updateGameOverUI() {
-            const statusText = document.getElementById("gameOverStatusText");
-            const btnContainer = document.getElementById("gameOverButtonContainer");
-
-            if (gameType === 'local') {
-                statusText.innerText = "請選擇下一步操作";
-                btnContainer.innerHTML = `
-                    <button class="start-action-btn" id="rematchActionBtn" onclick="handleRematchClick()">再來一局 (Rematch)</button>
-                    <button class="restart-btn" style="padding: 10px 25px; font-size: 15px; background-color: #d9534f; border-color: #d43f3a;" onclick="returnToMenu()">返回選單</button>
-                `;
+            initAudio();
+            if (isHost || gameType === 'local') gameRound++; 
+            clientRound = gameRound;
+            
+            if (!player1 || !player2) {
+                initGameInstance(p1ModeIndex, p2ModeIndex);
                 return;
             }
 
-            if (rematchState === 'none' || rematchState === 'declined_by_other' || rematchState === 'declined_by_me') {
-                let prefix = "";
-                if (rematchState === 'declined_by_other') prefix = "對手已拒絕再來一局邀請。";
-                if (rematchState === 'declined_by_me') prefix = "您已拒絕再來一局邀請。";
-                
-                statusText.innerText = prefix + " 請選擇下一步操作";
-                btnContainer.innerHTML = `
-                    <button class="start-action-btn" id="rematchActionBtn" onclick="handleRematchClick()" style="background: linear-gradient(135deg, #28a745, #218838);">再來一局 (發送邀請)</button>
-                    <button class="restart-btn" style="padding: 10px 25px; font-size: 15px; background-color: #d9534f; border-color: #d43f3a;" onclick="returnToMenu()">返回選單 / 重新匹配</button>
-                `;
+            player1.hp = 100; player1.x = 100; player1.y = 220; player1.vx = 0; player1.vy = 0; player1.chargeLevel = 0; player1.lastPlayedChargeTier = 0;
+            player2.hp = 100; player2.x = 660; player2.y = 220; player2.vx = 0; player2.vy = 0; player2.chargeLevel = 0; player2.lastPlayedChargeTier = 0;
+            bullets = []; particles = []; healthPack = null; gameOver = false; winnerMessage = ""; rematchState = 'none'; syncGameState = null;
+            for (let k in keys) keys[k] = false; for (let k in clientKeys) clientKeys[k] = false;
+            document.querySelectorAll('.ctrl-btn.active').forEach(btn => btn.classList.remove('active'));
+            document.getElementById("gameOverMenu").style.display = "none";
+            gameStarted = true;
+        }
+
+        function handleRematchClick() {
+            initAudio();
+            if (gameType === 'local') { triggerRematch(); } 
+            else {
+                if (rematchState === 'none') {
+                    rematchState = 'sent'; updateGameOverUI(); if (conn && conn.open) conn.send({ type: 'REMATCH_REQ' });
+                } else if (rematchState === 'received') {
+                    if (conn && conn.open) conn.send({ type: 'REMATCH_ACCEPT' }); triggerRematch();
+                }
+            }
+        }
+        function handleDeclineClick() { rematchState = 'declined_by_me'; updateGameOverUI(); if (conn && conn.open) conn.send({ type: 'REMATCH_DECLINE' }); }
+
+        function updateGameOverUI() {
+            const statusText = document.getElementById("gameOverStatusText"); const btnContainer = document.getElementById("gameOverButtonContainer");
+            if (gameType === 'local') {
+                statusText.innerText = "請選擇下一步操作";
+                btnContainer.innerHTML = `<button class="start-action-btn" onclick="handleRematchClick()">再來一局 (Rematch)</button><button class="restart-btn" style="background-color: #d9534f; border-color: #d43f3a;" onclick="returnToMenu()">返回選單</button>`;
+                return;
+            }
+
+            if (rematchState === 'declined_by_other') {
+                statusText.innerText = "對手拒絕了再來一局。";
+                btnContainer.innerHTML = `<button class="start-action-btn" style="background: linear-gradient(135deg, #007bff, #0056b3); border-color:#007bff;" onclick="startMatchmakingFromGameOver()">自動匹配新對手</button><button class="restart-btn" style="background-color: #d9534f; border-color: #d43f3a;" onclick="returnToMenu()">返回選單</button>`;
+            } else if (rematchState === 'declined_by_me') {
+                statusText.innerText = "您已拒絕再來一局。";
+                btnContainer.innerHTML = `<button class="start-action-btn" style="background: linear-gradient(135deg, #007bff, #0056b3); border-color:#007bff;" onclick="startMatchmakingFromGameOver()">自動匹配新對手</button><button class="restart-btn" style="background-color: #d9534f; border-color: #d43f3a;" onclick="returnToMenu()">返回選單</button>`;
+            } else if (rematchState === 'none') {
+                statusText.innerText = "想和原本的對手再來一局嗎？";
+                btnContainer.innerHTML = `<button class="start-action-btn" onclick="handleRematchClick()">再來一局 (發送邀請)</button><button class="restart-btn" onclick="handleDeclineClick()" style="background-color: #d9534f; border-color: #d43f3a;">結束連線退出</button>`;
             } else if (rematchState === 'sent') {
-                statusText.innerText = "已向對手發送再來一局邀請，等待對方同意中...";
-                btnContainer.innerHTML = `
-                    <button class="start-action-btn" onclick="handleCancelClick()" style="background: #6c757d; border-color: #545b62;">取消邀請</button>
-                `;
+                statusText.innerText = "已向對手發送邀請，等待同意中...";
+                btnContainer.innerHTML = `<button class="restart-btn" onclick="handleDeclineClick()">取消邀請並退出</button>`;
             } else if (rematchState === 'received') {
-                statusText.innerHTML = `<span style="color: #00ffcc; font-size: 16px;">對手邀請您再來一局！</span>`;
-                btnContainer.innerHTML = `
-                    <button class="start-action-btn" onclick="handleRematchClick()" style="background: linear-gradient(135deg, #ffc107, #e0a800); color: #000; border-color: #d39e00;">接受邀請 (Accept)</button>
-                    <button class="restart-btn" onclick="handleDeclineClick()" style="padding: 10px 25px; font-size: 15px; background-color: #d9534f; border-color: #d43f3a;">拒絕 (Decline)</button>
-                `;
+                statusText.innerHTML = `<span style="color: #00ffcc;">對手邀請您再來一局！</span>`;
+                btnContainer.innerHTML = `<button class="start-action-btn" onclick="handleRematchClick()" style="background: linear-gradient(135deg, #ffc107, #e0a800); color: #000;">接受邀請</button><button class="restart-btn" onclick="handleDeclineClick()" style="background-color: #d9534f;">拒絕</button>`;
             }
         }
 
         function showGameOver(msg) {
-            gameOver = true;
-            winnerMessage = msg;
-            if (healthPackInterval) {
-                clearInterval(healthPackInterval);
-                healthPackInterval = null;
-            }
-            document.getElementById("gameOverTitleText").innerText = winnerMessage;
-            rematchState = 'none';
-            updateGameOverUI();
+            gameOver = true; winnerMessage = msg; if (healthPackInterval) { clearInterval(healthPackInterval); healthPackInterval = null; }
+            document.getElementById("gameOverTitleText").innerText = winnerMessage; rematchState = 'none'; updateGameOverUI();
             document.getElementById("gameOverMenu").style.display = "flex";
         }
 
         function returnToMenu() {
-            gameStarted = false;
-            if (healthPackInterval) {
-                clearInterval(healthPackInterval);
-                healthPackInterval = null;
-            }
-            healthPack = null;
-            document.getElementById("startMenu").style.display = "flex";
-            document.getElementById("gameOverMenu").style.display = "none";
-            document.getElementById("instructionText").innerHTML = `<span class="highlight-p1">玩家1</span>: W,A,S,D 移動 | 空白鍵發射 &nbsp;|&nbsp; <span class="highlight-p2">玩家2</span>: 方向鍵移動 | Enter 發射`;
-            document.getElementById("findMatchBtn").style.display = "inline-block";
-            document.getElementById("connectionStatus").innerText = "狀態：尚未開始匹配";
-            if (peer) { peer.destroy(); peer = null; }
-            if (ghostRoomTimeout) { clearTimeout(ghostRoomTimeout); ghostRoomTimeout = null; }
-            isConnected = false;
+            initAudio();
+            gameStarted = false; gameRound = 1; clientRound = 1;
+            if (healthPackInterval) { clearInterval(healthPackInterval); healthPackInterval = null; } healthPack = null;
+            document.getElementById("startMenu").style.display = "flex"; document.getElementById("gameOverMenu").style.display = "none";
+            cancelMatchmaking();
             updateMenuLabels();
         }
 
-        function checkCollision(rect1, rect2) {
-            return rect1.x < rect2.x + rect2.width &&
-                   rect1.x + rect1.width > rect2.x &&
-                   rect1.y < rect2.y + rect2.height &&
-                   rect1.y + rect1.height > rect2.y;
-        }
-
-        function createHitParticles(x, y, color) {
-            for (let i = 0; i < 12; i++) {
-                particles.push(new Particle(x, y, color));
-            }
-        }
+        function checkCollision(r1, r2) { return r1.x < r2.x + r2.width && r1.x + r1.width > r2.x && r1.y < r2.y + r2.height && r1.y + r1.height > r2.y; }
+        function createHitParticles(x, y, color) { for (let i = 0; i < 12; i++) particles.push(new Particle(x, y, color)); }
 
         function drawHealthPack() {
             if (!healthPack) return;
-            ctx.save();
-            ctx.shadowColor = '#00ff00';
-            ctx.shadowBlur = 12;
-            
-            const cx = healthPack.x;
-            const cy = healthPack.y;
-            const arm = 5;
-            const total = 14;
-
-            ctx.beginPath();
-            ctx.moveTo(cx - arm, cy - total);
-            ctx.lineTo(cx + arm, cy - total);
-            ctx.lineTo(cx + arm, cy - arm);
-            ctx.lineTo(cx + total, cy - arm);
-            ctx.lineTo(cx + total, cy + arm);
-            ctx.lineTo(cx + arm, cy + arm);
-            ctx.lineTo(cx + arm, cy + total);
-            ctx.lineTo(cx - arm, cy + total);
-            ctx.lineTo(cx - arm, cy + arm);
-            ctx.lineTo(cx - total, cy + arm);
-            ctx.lineTo(cx - total, cy - arm);
-            ctx.lineTo(cx - arm, cy - arm);
-            ctx.closePath();
-
-            ctx.strokeStyle = '#00ff00';
-            ctx.lineWidth = 3;
-            ctx.stroke();
-            ctx.fillStyle = 'rgba(0, 255, 0, 0.15)';
-            ctx.fill();
-            ctx.restore();
+            ctx.save(); ctx.shadowColor = '#00ff00'; ctx.shadowBlur = 12;
+            const cx = healthPack.x; const cy = healthPack.y; const arm = 5; const total = 14;
+            ctx.beginPath(); ctx.moveTo(cx - arm, cy - total); ctx.lineTo(cx + arm, cy - total); ctx.lineTo(cx + arm, cy - arm); ctx.lineTo(cx + total, cy - arm);
+            ctx.lineTo(cx + total, cy + arm); ctx.lineTo(cx + arm, cy + arm); ctx.lineTo(cx + arm, cy + total); ctx.lineTo(cx - arm, cy + total);
+            ctx.lineTo(cx - arm, cy + arm); ctx.lineTo(cx - total, cy + arm); ctx.lineTo(cx - total, cy - arm); ctx.lineTo(cx - arm, cy - arm);
+            ctx.closePath(); ctx.strokeStyle = '#00ff00'; ctx.lineWidth = 3; ctx.stroke(); ctx.fillStyle = 'rgba(0, 255, 0, 0.15)'; ctx.fill(); ctx.restore();
         }
 
-        function gameLoop() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        function updateGameLogic() {
+            if (!gameStarted) return;
 
-            if (gameStarted && !gameOver) {
-                if (gameType === 'local' || (gameType.startsWith('online') && isHost)) {
-                    let p2Input = gameType.startsWith('online') ? clientKeys : keys;
-                    
-                    player1.update(player2, keys);
+            if (gameType === 'local' || (gameType.startsWith('online') && isHost)) {
+                let p2Input = gameType.startsWith('online') ? clientKeys : keys;
+                if (!gameOver && player1 && player2) {
+                    player1.update(player2, keys); 
                     player2.update(player1, p2Input);
-
+                    
                     if (healthPack) {
                         let hpBox = { x: healthPack.x - 16, y: healthPack.y - 16, width: 32, height: 32 };
-                        if (checkCollision(player1, hpBox)) {
-                            player1.hp = Math.min(100, player1.hp + 50);
-                            createHitParticles(healthPack.x, healthPack.y, '#00ff00');
-                            healthPack = null;
-                        } else if (checkCollision(player2, hpBox)) {
-                            player2.hp = Math.min(100, player2.hp + 50);
-                            createHitParticles(healthPack.x, healthPack.y, '#00ff00');
-                            healthPack = null;
+                        if (checkCollision(player1, hpBox)) { 
+                            player1.hp = Math.min(100, player1.hp + 50); 
+                            createHitParticles(healthPack.x, healthPack.y, '#00ff00'); 
+                            playSound('heal');
+                            healthPack = null; 
+                        } 
+                        else if (checkCollision(player2, hpBox)) { 
+                            player2.hp = Math.min(100, player2.hp + 50); 
+                            createHitParticles(healthPack.x, healthPack.y, '#00ff00'); 
+                            playSound('heal');
+                            healthPack = null; 
                         }
                     }
 
                     let bulletsToRemove = new Set();
-
-                    for (let i = 0; i < bullets.length; i++) {
-                        let b = bullets[i];
-                        b.x += b.speed;
-                        if (b.x < -100 || b.x > canvas.width + 100) {
-                            bulletsToRemove.add(i);
-                        }
+                    for (let i = 0; i < bullets.length; i++) { 
+                        bullets[i].x += bullets[i].speed; 
+                        if (bullets[i].x < -100 || bullets[i].x > canvas.width + 100) bulletsToRemove.add(i); 
                     }
-
                     for (let i = 0; i < bullets.length; i++) {
-                        if (bulletsToRemove.has(i)) continue;
-                        let b1 = bullets[i];
+                        if (bulletsToRemove.has(i)) continue; let b1 = bullets[i];
                         for (let j = i + 1; j < bullets.length; j++) {
-                            if (bulletsToRemove.has(j)) continue;
-                            let b2 = bullets[j];
-
+                            if (bulletsToRemove.has(j)) continue; let b2 = bullets[j];
                             if (b1.owner !== b2.owner && checkCollision(b1, b2)) {
-                                if (Math.abs(b1.damage - b2.damage) < 0.01) {
-                                    bulletsToRemove.add(i);
-                                    bulletsToRemove.add(j);
-                                    createHitParticles((b1.x + b2.x) / 2, (b1.y + b2.y) / 2, '#ffeb3b');
-                                } else if (b1.damage > b2.damage) {
-                                    let oldDamage = b1.damage;
-                                    b1.damage -= b2.damage;
-                                    let damageRatio = Math.max(0.15, b1.damage / oldDamage);
-
-                                    let oldWidth = b1.width;
-                                    let oldHeight = b1.height;
-
-                                    b1.width = Math.max(6, oldWidth * damageRatio);
-                                    b1.height = Math.max(4, oldHeight * damageRatio);
-
-                                    let centerY = b1.y + oldHeight / 2;
-                                    b1.y = centerY - b1.height / 2;
-                                    if (b1.speed > 0) {
-                                        b1.x += (oldWidth - b1.width);
-                                    }
-
-                                    bulletsToRemove.add(j);
-                                    createHitParticles(b2.x, b2.y + b2.height / 2, b2.color);
-                                } else {
-                                    let oldDamage = b2.damage;
-                                    b2.damage -= b1.damage;
-                                    let damageRatio = Math.max(0.15, b2.damage / oldDamage);
-
-                                    let oldWidth = b2.width;
-                                    let oldHeight = b2.height;
-
-                                    b2.width = Math.max(6, oldWidth * damageRatio);
-                                    b2.height = Math.max(4, oldHeight * damageRatio);
-
-                                    let centerY = b2.y + oldHeight / 2;
-                                    b2.y = centerY - b2.height / 2;
-                                    if (b2.speed > 0) {
-                                        b2.x += (oldWidth - b2.width);
-                                    }
-
-                                    bulletsToRemove.add(i);
-                                    createHitParticles(b1.x, b1.y + b1.height / 2, b1.color);
-                                }
+                                playSound('metal_clash');
+                                if (Math.abs(b1.damage - b2.damage) < 0.01) { bulletsToRemove.add(i); bulletsToRemove.add(j); createHitParticles((b1.x + b2.x)/2, (b1.y + b2.y)/2, '#ffeb3b'); } 
+                                else if (b1.damage > b2.damage) { let ratio = (b1.damage - b2.damage) / b1.damage; b1.y += (b1.height - b1.height*ratio)/2; b1.width *= ratio; b1.height *= ratio; bulletsToRemove.add(j); createHitParticles(b2.x, b2.y + b2.height/2, b2.color); } 
+                                else { let ratio = (b2.damage - b1.damage) / b2.damage; b2.damage -= b1.damage; b2.y += (b2.height - b2.height*ratio)/2; b2.width *= ratio; b2.height *= ratio; bulletsToRemove.add(i); createHitParticles(b1.x, b1.y + b1.height/2, b1.color); }
                             }
                         }
                     }
 
                     for (let i = 0; i < bullets.length; i++) {
-                        if (bulletsToRemove.has(i)) continue;
-                        let b = bullets[i];
-                        let target = b.owner === 1 ? player2 : player1;
-
+                        if (bulletsToRemove.has(i)) continue; let b = bullets[i]; let target = b.owner === 1 ? player2 : player1;
                         if (checkCollision(b, target)) {
-                            target.hp -= b.damage;
-                            createHitParticles(b.x, b.y + b.height / 2, target.color);
+                            target.hp -= b.damage; 
+                            createHitParticles(b.x, b.y + b.height / 2, target.color); 
+                            playSound('hit');
                             bulletsToRemove.add(i);
-
                             if (target.hp <= 0) {
-                                const loserName = target === player1 ? "玩家 1 (藍)" : "玩家 2 (紅)";
-                                showGameOver(`${loserName} 輸了！`);
+                                playSound('death');
+                                showGameOver(`${target === player1 ? "玩家 1 (藍)" : "玩家 2 (紅)"} 輸了！`);
                             }
                         }
                     }
-
-                    let sortedIndices = Array.from(bulletsToRemove).sort((a, b) => b - a);
-                    for (let idx of sortedIndices) {
-                        bullets.splice(idx, 1);
-                    }
-
-                    if (gameType.startsWith('online') && conn && conn.open) {
-                        conn.send({
-                            type: 'STATE',
-                            p1: { x: player1.x, y: player1.y, hp: player1.hp, facingRight: player1.facingRight, chargeLevel: player1.chargeLevel },
-                            p2: { x: player2.x, y: player2.y, hp: player2.hp, facingRight: player2.facingRight, chargeLevel: player2.chargeLevel },
-                            bullets: bullets,
-                            healthPack: healthPack,
-                            gameOver: gameOver,
-                            winnerMessage: winnerMessage
-                        });
-                    }
-                } else if (gameType.startsWith('online') && !isHost) {
-                    if (conn && conn.open) {
-                        conn.send({ type: 'KEYS', keys: keys });
-                    }
-                    if (syncGameState) {
-                        player1.x = syncGameState.p1.x;
-                        player1.y = syncGameState.p1.y;
-                        player1.hp = syncGameState.p1.hp;
-                        player1.facingRight = syncGameState.p1.facingRight;
-                        player1.chargeLevel = syncGameState.p1.chargeLevel;
-
-                        player2.x = syncGameState.p2.x;
-                        player2.y = syncGameState.p2.y;
-                        player2.hp = syncGameState.p2.hp;
-                        player2.facingRight = syncGameState.p2.facingRight;
-                        player2.chargeLevel = syncGameState.p2.chargeLevel;
-
-                        bullets = syncGameState.bullets;
-                        healthPack = syncGameState.healthPack;
-
-                        // 【修復】若房主已開始下一局（gameOver 變為 false），客戶端強制自動同步解除畫面並開始下一局
-                        if (gameOver && !syncGameState.gameOver) {
-                            triggerRematch();
-                        }
-
-                        if (syncGameState.gameOver && !gameOver) {
-                            showGameOver(syncGameState.winnerMessage);
-                        }
-                    }
+                    Array.from(bulletsToRemove).sort((a, b) => b - a).forEach(idx => bullets.splice(idx, 1));
                 }
-            }
-
-            drawHealthPack();
-
-            for (let i = bullets.length - 1; i >= 0; i--) {
-                let b = bullets[i];
-                ctx.save();
-                ctx.shadowColor = b.color;
-                ctx.shadowBlur = 8;
-                ctx.fillStyle = b.color;
-                ctx.fillRect(b.x, b.y, b.width, b.height);
-                ctx.restore();
+                if (gameType.startsWith('online') && conn && conn.open) {
+                    conn.send({ type: 'STATE', p1: player1 ? { x: player1.x, y: player1.y, hp: player1.hp, facingRight: player1.facingRight, chargeLevel: player1.chargeLevel } : null, p2: player2 ? { x: player2.x, y: player2.y, hp: player2.hp, facingRight: player2.facingRight, chargeLevel: player2.chargeLevel } : null, bullets: bullets, healthPack: healthPack, gameOver: gameOver, winnerMessage: winnerMessage, round: gameRound });
+                }
+            } else if (gameType.startsWith('online') && !isHost) {
+                if (conn && conn.open) conn.send({ type: 'KEYS', keys: keys });
+                if (!gameOver && player2) player2.update(player1, keys);
+                
+                if (syncGameState) {
+                    if (syncGameState.round > clientRound) { 
+                        clientRound = syncGameState.round; 
+                        gameRound = clientRound; 
+                        triggerRematch(); 
+                    }
+                    if (player1 && syncGameState.p1) {
+                        player1.x += (syncGameState.p1.x - player1.x) * 0.4;
+                        player1.y += (syncGameState.p1.y - player1.y) * 0.4;
+                        player1.hp = syncGameState.p1.hp; player1.facingRight = syncGameState.p1.facingRight; player1.chargeLevel = syncGameState.p1.chargeLevel;
+                    }
+                    if (player2 && syncGameState.p2) {
+                        player2.x += (syncGameState.p2.x - player2.x) * 0.2;
+                        player2.y += (syncGameState.p2.y - player2.y) * 0.2;
+                        player2.hp = syncGameState.p2.hp; player2.facingRight = syncGameState.p2.facingRight; player2.chargeLevel = syncGameState.p2.chargeLevel;
+                    }
+                    bullets = syncGameState.bullets || []; 
+                    healthPack = syncGameState.healthPack;
+                    if (syncGameState.gameOver && !gameOver && syncGameState.round === clientRound) showGameOver(syncGameState.winnerMessage);
+                }
             }
 
             for (let i = particles.length - 1; i >= 0; i--) {
-                let p = particles[i];
-                p.update();
-                p.draw();
-                if (p.alpha <= 0) {
-                    particles.splice(i, 1);
-                }
+                particles[i].update();
+                if (particles[i].alpha <= 0) particles.splice(i, 1);
+            }
+        }
+
+        let lastTimestamp = 0;
+        let accumulator = 0;
+        const timeStep = 1000 / 60;
+
+        function gameLoop(timestamp) {
+            if (!lastTimestamp) lastTimestamp = timestamp;
+            let dt = timestamp - lastTimestamp;
+            lastTimestamp = timestamp;
+            if (dt > 200) dt = 200;
+
+            accumulator += dt;
+            while (accumulator >= timeStep) {
+                updateGameLogic();
+                accumulator -= timeStep;
             }
 
-            if (gameStarted) {
-                player1.draw();
-                player2.draw();
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawHealthPack();
+            for (let i = 0; i < bullets.length; i++) { 
+                ctx.save(); 
+                ctx.shadowColor = bullets[i].color; 
+                ctx.shadowBlur = 8; 
+                ctx.fillStyle = bullets[i].color; 
+                ctx.fillRect(bullets[i].x, bullets[i].y, bullets[i].width, bullets[i].height); 
+                ctx.restore(); 
+            }
+            for (let i = 0; i < particles.length; i++) { 
+                particles[i].draw(); 
+            }
+            if (gameStarted && player1 && player2) { 
+                player1.draw(); 
+                player2.draw(); 
             }
 
             requestAnimationFrame(gameLoop);
         }
 
-        gameLoop();
+        requestAnimationFrame(gameLoop);
     </script>
 </body>
 </html>
