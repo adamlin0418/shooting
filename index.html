@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>電腦連機射擊 (介面優化版)</title>
+    <title>電腦連機射擊 (模式獨立與自動重試版)</title>
     <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <style>
         body {
@@ -119,7 +119,7 @@
             <button class="start-action-btn" id="startBtn" onclick="startGame()">開始本地對戰</button>
 
             <div id="onlineConfigPanel" style="display: none;">
-                <div id="onlineModeHint" style="font-size: 12px; color: #ccc; margin-bottom: 8px;">【特殊對戰】選擇您的模式後即可開始匹配</div>
+                <div id="onlineModeHint" style="font-size: 12px; color: #ccc; margin-bottom: 8px;">【線上模式】每5秒自動重新偵測匹配</div>
                 
                 <div id="matchBtnContainer">
                     <button class="quick-match-btn" onclick="startMatchmaking()">尋找對手 (自動匹配)</button>
@@ -127,7 +127,7 @@
 
                 <div id="matchStatusContainer" style="display: none;">
                     <div id="matchStatusText" style="color: #00ffcc; font-size: 14px; font-weight: bold;">正在尋找同模式玩家...</div>
-                    <div id="matchStatusSub" style="color: #aaa; font-size: 11px; margin-top: 3px;">搜尋中 0s</div>
+                    <div id="matchStatusSub" style="color: #aaa; font-size: 11px; margin-top: 3px;">搜尋中 0s (每5秒重新偵測)</div>
                     <button class="cancel-match-btn" onclick="cancelMatchmaking()">取消匹配</button>
                 </div>
             </div>
@@ -307,7 +307,7 @@
 
         let p1ModeIndex = 0; 
         let p2ModeIndex = 0;
-        let myModeIndex = 0; // 用於線上特殊對戰的個人模式選擇
+        let myModeIndex = 0; 
         let gameType = 'local'; 
         
         let peer = null; 
@@ -316,6 +316,7 @@
         let isHost = false;
         
         let matchTimerInterval = null;
+        let matchRetryInterval = null;
         let matchSeconds = 0;
 
         let gameRound = 1; let clientRound = 1;
@@ -332,6 +333,9 @@
 
         function setGameType(type) {
             initAudio();
+            // 切換模式時自動取消並斷開所有先前的線上連線與匹配
+            cancelMatchmaking();
+            
             gameType = type;
             document.getElementById("modeLocalBtn").classList.toggle('active', type === 'local');
             document.getElementById("modeOnlineNormalBtn").classList.toggle('active', type === 'online_normal');
@@ -344,7 +348,7 @@
             if (type === 'online_normal') {
                 document.getElementById("onlineConfigPanel").style.display = "block";
                 document.getElementById("startBtn").style.display = "none";
-                document.getElementById("onlineModeHint").innerText = "【普通對戰】雙方強制鎖定標準模式";
+                document.getElementById("onlineModeHint").innerText = "【普通對戰】雙方強制鎖定標準模式（每5秒自動偵測匹配）";
                 p1ModeIndex = 0; p2ModeIndex = 0;
                 menuSelectors.style.display = "none"; 
                 onlineSpecialSelector.style.display = "none";
@@ -353,21 +357,19 @@
             } else if (type === 'online_special') {
                 document.getElementById("onlineConfigPanel").style.display = "block";
                 document.getElementById("startBtn").style.display = "none";
-                document.getElementById("onlineModeHint").innerText = "【特殊對戰】選擇您的模式後即可開始匹配";
+                document.getElementById("onlineModeHint").innerText = "【特殊對戰】選擇您的模式後即可開始匹配（每5秒自動偵測匹配）";
                 menuSelectors.style.display = "none"; 
-                onlineSpecialSelector.style.display = "flex"; // 顯示黃色單一選擇籃
+                onlineSpecialSelector.style.display = "flex"; 
                 menuHintText.style.display = "block"; 
                 document.getElementById("menuModeHintText").innerText = "提示：點擊上方黃色選單可選擇您想使用的特殊模式";
                 updateSingleModeDisplay();
             } else {
                 document.getElementById("onlineConfigPanel").style.display = "none";
                 document.getElementById("startBtn").style.display = "inline-block";
-                menuSelectors.style.display = "flex"; // 顯示本地雙人選擇籃
+                menuSelectors.style.display = "flex"; 
                 onlineSpecialSelector.style.display = "none";
                 menuHintText.style.display = "block"; 
                 document.getElementById("menuModeHintText").innerText = "提示：可直接點擊按鈕，或用 A/D 與 ←/→ 切換模式";
-                cancelMatchmaking();
-                cleanupPeers();
             }
             updateMenuLabels();
         }
@@ -438,7 +440,8 @@
         }
 
         function cancelMatchmaking() {
-            clearInterval(matchTimerInterval);
+            if (matchTimerInterval) clearInterval(matchTimerInterval);
+            if (matchRetryInterval) clearInterval(matchRetryInterval);
             cleanupPeers();
             document.getElementById("matchBtnContainer").style.display = "block";
             document.getElementById("matchStatusContainer").style.display = "none";
@@ -459,22 +462,36 @@
             document.getElementById("matchStatusText").style.color = "#00ffcc";
             
             matchSeconds = 0;
-            document.getElementById("matchStatusSub").innerText = `搜尋中 ${matchSeconds}s`;
+            document.getElementById("matchStatusSub").innerText = `搜尋中 ${matchSeconds}s (每5秒重新偵測)`;
             
+            if (matchTimerInterval) clearInterval(matchTimerInterval);
+            if (matchRetryInterval) clearInterval(matchRetryInterval);
+
             matchTimerInterval = setInterval(() => {
                 matchSeconds++;
-                document.getElementById("matchStatusSub").innerText = `搜尋中 ${matchSeconds}s`;
+                document.getElementById("matchStatusSub").innerText = `搜尋中 ${matchSeconds}s (每5秒重新偵測)`;
                 if (matchSeconds === 5 && !conn) {
-                    document.getElementById("matchStatusText").innerText = "目前無人排隊，您已成為佇列首位";
+                    document.getElementById("matchStatusText").innerText = "目前無人排隊，已成為佇列首位";
                     document.getElementById("matchStatusText").style.color = "#ffeb3b";
-                    document.getElementById("matchStatusSub").innerText = "等待下一位玩家加入...";
                 }
             }, 1000);
 
-            tryJoinGlobalQueue();
+            // 首次嘗試匹配
+            runMatchmakingAttempt();
+
+            // 每 5 秒自動重新偵測/重新發起匹配
+            matchRetryInterval = setInterval(() => {
+                if (!conn) {
+                    if (searchPeer) {
+                        searchPeer.destroy();
+                        searchPeer = null;
+                    }
+                    runMatchmakingAttempt();
+                }
+            }, 5000);
         }
 
-        function tryJoinGlobalQueue() {
+        function runMatchmakingAttempt() {
             const queueId = "tw_shooter_queue_2026_" + gameType;
             searchPeer = new Peer(peerConfig);
             
@@ -484,6 +501,7 @@
                 tempConn.on('open', () => {
                     tempConn.on('data', (data) => {
                         if (data.type === 'MATCH_SUCCESS' && data.roomId) {
+                            if (matchRetryInterval) clearInterval(matchRetryInterval);
                             searchPeer.destroy();
                             joinPrivateGameRoom(data.roomId);
                         }
@@ -505,7 +523,8 @@
             searchPeer.on('open', () => {});
 
             searchPeer.on('connection', (tempConn) => {
-                clearInterval(matchTimerInterval);
+                if (matchTimerInterval) clearInterval(matchTimerInterval);
+                if (matchRetryInterval) clearInterval(matchRetryInterval);
                 document.getElementById("matchStatusText").innerText = "找到對手！正在建立專屬通道...";
                 document.getElementById("matchStatusSub").innerText = "請稍候...";
 
@@ -529,7 +548,7 @@
 
             searchPeer.on('error', (err) => {
                 if (err.type === 'unavailable-id') {
-                    setTimeout(tryJoinGlobalQueue, 1000);
+                    // 衝突時等待下一次 5 秒循環自動重新偵測
                 }
             });
         }
@@ -541,7 +560,8 @@
                 if (gameType === 'online_special') p2ModeIndex = myModeIndex;
                 updateMenuLabels();
                 conn = peer.connect(roomId);
-                clearInterval(matchTimerInterval);
+                if (matchTimerInterval) clearInterval(matchTimerInterval);
+                if (matchRetryInterval) clearInterval(matchRetryInterval);
                 setupGameConnectionEvents();
             });
         }
