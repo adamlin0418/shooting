@@ -1,9 +1,10 @@
+
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>電腦連機射擊 (模式獨立與自動重試版)</title>
+    <title>電腦連機射擊 (配對成功隱藏取消按鈕版)</title>
     <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <style>
         body {
@@ -128,11 +129,10 @@
                 <div id="matchStatusContainer" style="display: none;">
                     <div id="matchStatusText" style="color: #00ffcc; font-size: 14px; font-weight: bold;">正在尋找同模式玩家...</div>
                     <div id="matchStatusSub" style="color: #aaa; font-size: 11px; margin-top: 3px;">搜尋中 0s (每5秒重新偵測)</div>
-                    <button class="cancel-match-btn" onclick="cancelMatchmaking()">取消匹配</button>
+                    <button class="cancel-match-btn" id="cancelMatchBtn" onclick="cancelMatchmaking()">取消匹配</button>
                 </div>
             </div>
 
-            <!-- 本地雙人的雙選單 -->
             <div class="menu-selectors" id="menuSelectorsContainer" style="margin-top: 8px;">
                 <div class="menu-player-box" style="border-color: #4facf7;">
                     <h3 style="color: #4facf7;" id="p1BoxTitle">玩家 1 (藍)</h3>
@@ -152,7 +152,6 @@
                 </div>
             </div>
 
-            <!-- 線上特殊對戰的單一黃色選單 -->
             <div class="menu-selectors" id="onlineSpecialSelectorContainer" style="display: none; margin-top: 8px;">
                 <div class="menu-single-box">
                     <h3>您的模式選擇</h3>
@@ -177,7 +176,6 @@
         </div>
     </div>
 
-    <!-- 觸控控制 -->
     <div class="mobile-controls">
         <div class="player-control-group p1-panel">
             <h4 id="p1Title">玩家 1</h4>
@@ -333,7 +331,6 @@
 
         function setGameType(type) {
             initAudio();
-            // 切換模式時自動取消並斷開所有先前的線上連線與匹配
             cancelMatchmaking();
             
             gameType = type;
@@ -458,6 +455,8 @@
             cleanupPeers();
             document.getElementById("matchBtnContainer").style.display = "none";
             document.getElementById("matchStatusContainer").style.display = "block";
+            // 確保尋找中時顯示取消按鈕
+            document.getElementById("cancelMatchBtn").style.display = "inline-block";
             document.getElementById("matchStatusText").innerText = "正在尋找對手...";
             document.getElementById("matchStatusText").style.color = "#00ffcc";
             
@@ -476,10 +475,8 @@
                 }
             }, 1000);
 
-            // 首次嘗試匹配
             runMatchmakingAttempt();
 
-            // 每 5 秒自動重新偵測/重新發起匹配
             matchRetryInterval = setInterval(() => {
                 if (!conn) {
                     if (searchPeer) {
@@ -503,6 +500,10 @@
                         if (data.type === 'MATCH_SUCCESS' && data.roomId) {
                             if (matchRetryInterval) clearInterval(matchRetryInterval);
                             searchPeer.destroy();
+                            // 配對成功！隱藏取消按鈕
+                            const cancelBtn = document.getElementById("cancelMatchBtn");
+                            if (cancelBtn) cancelBtn.style.display = "none";
+                            document.getElementById("matchStatusText").innerText = "配對成功！正在進入遊戲...";
                             joinPrivateGameRoom(data.roomId);
                         }
                     });
@@ -525,6 +526,11 @@
             searchPeer.on('connection', (tempConn) => {
                 if (matchTimerInterval) clearInterval(matchTimerInterval);
                 if (matchRetryInterval) clearInterval(matchRetryInterval);
+                
+                // 玩家連線進來，配對成功！立即隱藏取消匹配按鈕
+                const cancelBtn = document.getElementById("cancelMatchBtn");
+                if (cancelBtn) cancelBtn.style.display = "none";
+
                 document.getElementById("matchStatusText").innerText = "找到對手！正在建立專屬通道...";
                 document.getElementById("matchStatusSub").innerText = "請稍候...";
 
@@ -567,6 +573,10 @@
         }
 
         function startHostCountdown() {
+            // 雙保險：確保配對成功開始倒數時隱藏取消按鈕
+            const cancelBtn = document.getElementById("cancelMatchBtn");
+            if (cancelBtn) cancelBtn.style.display = "none";
+
             let count = 3;
             document.getElementById("matchStatusText").innerText = `連線成功！${count} 秒後開始...`;
             document.getElementById("matchStatusSub").innerText = "準備戰鬥";
@@ -591,6 +601,10 @@
         function setupGameConnectionEvents() {
             conn.on('open', () => {
                 if (!isHost) {
+                    // 確保客戶端連線成功也隱藏取消按鈕
+                    const cancelBtn = document.getElementById("cancelMatchBtn");
+                    if (cancelBtn) cancelBtn.style.display = "none";
+
                     document.getElementById("matchStatusText").innerText = `通道連接成功，等待主機開始...`;
                     document.getElementById("matchStatusSub").innerText = "";
                     if (gameType === 'online_special') {
@@ -625,6 +639,10 @@
                     if (data.type === 'KEYS') clientKeys = data.keys;
                 } else {
                     if (data.type === 'COUNTDOWN') {
+                        // 確保客戶端收到倒數時取消按鈕也是隱藏的
+                        const cancelBtn = document.getElementById("cancelMatchBtn");
+                        if (cancelBtn) cancelBtn.style.display = "none";
+
                         if (gameType === 'online_special') { 
                             p1ModeIndex = data.p1Mode; 
                             p2ModeIndex = myModeIndex; 
